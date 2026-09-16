@@ -5,17 +5,39 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](#)
 [![100% Offline](https://img.shields.io/badge/Privacidad-100%25_Local_%2F_Offline-green.svg)](#)
 [![KaTeX](https://img.shields.io/badge/KaTeX-Math_Strict-critical.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-11%2F11_PASS-success.svg)](#)
 [![Licencia MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#)
 
 ---
 
-## ⚡ INSTALACIÓN EN 1 PASO (PARA EL ALUMNO)
+## ⚡ INSTALACIÓN (ELIGE TU MÉTODO FAVORITO)
 
-No necesitas ejecutar terminales, ni archivos `.bat`, ni compilar código. Para instalar el tutor en tu ordenador:
+### 🥇 Método 1: En 1 Clic (Recomendado e Infalible)
+Abre **PowerShell** en tu ordenador (pulsa la tecla Windows, escribe `powershell` y pulsa Enter) y pega esta línea:
 
+```powershell
+git clone https://github.com/errobimd/tutor-academico-universal.git "$HOME\.agents\skills\tutor-academico"
+```
+
+> **¡Listo!** Abre **Bionic Studio**, crea un nuevo chat y ya tendrás disponible **`@tutor-academico`** en tu menú de habilidades. Sin intermediarios ni fallos de herramientas.
+
+---
+
+### 🥈 Método 2: Descarga Manual Directa (Sin usar terminal)
+1. Pulsa el botón verde superior **`Code`** $\to$ **`Download ZIP`** en este repositorio.
+2. Descomprime la carpeta descargada.
+3. Renombra la carpeta a `tutor-academico` y muévela a tu carpeta de habilidades:
+   * En Windows: `C:\Users\<TuUsuario>\.agents\skills\tutor-academico`
+   * En Linux/Mac: `~/.agents/skills/tutor-academico`
+4. Abre **Bionic Studio** y escribe `@tutor-academico`.
+
+---
+
+### 🥉 Método 3: Desde el Asistente de Bionic Studio (Vía Chat)
+Si tu modelo local soporta la invocación de herramientas de sistema:
 1. Abre **Bionic Studio**.
-2. Pulsa en **"Crear Skill desde Chat"** (o en la sección de Habilidades).
-3. **Copia y pega este prompt oficial:**
+2. Ve a la sección de **Habilidades** (o pulsa *Crear Skill*).
+3. Pega este mensaje:
 
 ```text
 Instala el skill @instalador-tutor desde el repositorio oficial:
@@ -23,8 +45,6 @@ https://github.com/errobimd/tutor-academico-universal.git
 
 Configura el entorno para desplegar el Tutor Académico Inteligente con motor LlamaIndex local, menús numerados por asignatura, 4 sub-roles pedagógicos y KaTeX riguroso.
 ```
-
-4. ¡Y listo! Al finalizar, escribe simplemente **`@tutor-academico`** y tu profesor te dará la bienvenida.
 
 ---
 
@@ -34,7 +54,7 @@ El tutor es **100% agnóstico**: sirve para cualquier materia o carrera (Inform�
 
 Solo coloca tus carpetas de apuntes dentro de tu espacio de trabajo:
 
-```
+```text
 Mi_Espacio_De_Estudio/
 │
 ├── 1 Evaluación/                           <- Opcional: puedes agrupar por evaluación
@@ -45,7 +65,7 @@ Mi_Espacio_De_Estudio/
 │   └── Gestión de Bases de Datos/
 │       └── Apuntes_Modelo_Relacional.pdf
 │
-└── Otras Materias (Ejemplo)/
+└── Otras Materias (Cualquier disciplina)/
     ├── Biología Marina/
     │   └── Cetaceos_y_Buceo.pdf
     │
@@ -65,7 +85,7 @@ El tutor detecta automáticamente lo que necesitas y adopta uno de estos 4 roles
 | :--- | :--- | :--- |
 | 🔧 **El Entrenador Práctico** | *"Dame problemas"*, *"cálculos"* | Desglosa operaciones paso a paso en **KaTeX riguroso** (cajetines encadenados $\underline{\;2\;}$ y escaleras). No revela la solución de golpe. |
 | ⚖️ **El Tribunal Evaluador** | *"Hazme un test"*, *"examen"* | Genera preguntas cerradas tipo test (A, B, C, D) con 3 distractores basados en las trampas reales del temario. |
-| 🌱 **El Mentor Intuitivo** | *"Explícame qué es..."*, *"dudas"* | Aplica la tríada: *Analogía cotidiana $\to$ Definición formal $\to$ Diagrama Mermaid*. |
+| 🌱 **El Mentor Intuitivo** | *"Explícame qué es..."*, *"dudas"* | Aplica la tríada: *Analogía cotidiana $\to$ Definición formal $	o$ Diagrama Mermaid*. |
 | 🧭 **El Coach de Rescate** | *"He suspendido"*, *"recuperar"* | Diagnostica en qué fallaste y te diseña un plan de mínimos con lo imprescindible para aprobar. |
 | ⚡ **Hoja de Resumen (Cheat Sheet)** | *"Chuleta para el bus en 10 min"* | Comprime el tema en 1 sola pantalla: tabla oro, fórmulas, rangos y trucos de examen sin paja teórica. |
 
@@ -73,7 +93,7 @@ El tutor detecta automáticamente lo que necesitas y adopta uno de estos 4 roles
 
 ## 🏛️ ARQUITECTURA TÉCNICA: DESACOPLAMIENTO DE RECURSOS
 
-```
+```text
     TU MEMORIA RAM Y CPU                               TARJETA GRÁFICA (VRAM)
 ┌─────────────────────────────────┐               ┌───────────────────────────────┐
 │     Motor Python (LlamaIndex)   │               │         Bionic Studio         │
@@ -93,15 +113,8 @@ El tutor detecta automáticamente lo que necesitas y adopta uno de estos 4 roles
 
 ## 🧪 BANCO DE PRUEBAS AUTOMATIZADO
 
-El motor incluye su propia suite de pruebas de estrés (`motor/simulador_tutor.py`). Puedes comprobar su estado con:
+El motor incluye su propia suite de pruebas de estrés (`motor/simulador_tutor.py`) con 11 auditorías (100% PASS). Puedes comprobar su estado con:
 
 ```bash
 python motor/simulador_tutor.py
 ```
-> **Resultado del Pase de Pruebas Oficial:** **11/11 pruebas superadas con éxito (100% PASS)**.
-
----
-
-## 👤 Autor y Licencia
-Desarrollado y mantenido por **[@errobimd](https://github.com/errobimd)**.  
-Distribuido bajo licencia MIT. ¡Siéntete libre de adaptarlo para tus propios estudios!

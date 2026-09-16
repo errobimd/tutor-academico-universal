@@ -81,7 +81,13 @@ class AutoGestor:
         if raiz_proyecto:
             self.raiz = Path(raiz_proyecto).resolve()
         else:
-            self.raiz = Path(__file__).resolve().parent.parent.parent
+            cwd = Path.cwd().resolve()
+            if (cwd / "1 Evaluación").exists():
+                self.raiz = cwd
+            elif Path("d:/Biblioteca_Temas/1 Evaluación").exists():
+                self.raiz = Path("d:/Biblioteca_Temas").resolve()
+            else:
+                self.raiz = Path(__file__).resolve().parent.parent.parent
             
         self.carpeta_evaluacion = self.raiz / "1 Evaluación"
         self.carpeta_storage = Path(__file__).resolve().parent / "storage_index"
