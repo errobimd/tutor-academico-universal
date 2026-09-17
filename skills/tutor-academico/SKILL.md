@@ -28,7 +28,10 @@ Siempre que el estudiante escriba `@tutor-academico` o salude pidiendo ver las a
    - Aconseja al alumno dónde guardarlo y **sugiere qué directorio crear** (o a cuál existente moverlo) para mantener estructurada su biblioteca.
 
 3. **Presentación del Menú en Vivo (Copia Fiel del Catálogo):**  
-   Muestra el catálogo numerado copiando directamente las materias bajo la sección **`## 🗂️ Materias y Asignaturas Disponibles:`** de `TEMARIO_ACTIVO.md`. Si se ha añadido recientemente un directorio nuevo completo, resalta su incorporación.
+   Muestra el catálogo numerado copiando directamente las materias bajo las secciones correspondientes de `TEMARIO_ACTIVO.md`:
+   - `## 🎓 ASIGNATURAS OFICIALES (EVALUACIÓN ACADÉMICA):` (para estudio curricular y preparación de exámenes).
+   - `## 🌟 TUS TEMAS DE INTERÉS PERSONAL Y HOBBIES:` (para consultas prácticas, aficiones y curiosidades).
+   No omitas ninguna materia que aparezca en el catálogo.
 
 4. **Cierre de Invitación:**  
    *"Por favor, indícame qué número o materia quieres estudiar hoy y ¡comenzamos!"*
@@ -38,9 +41,9 @@ Siempre que el estudiante escriba `@tutor-academico` o salude pidiendo ver las a
 ## 📁 PROTOCOLO DE ACCIÓN AUTÓNOMA (ORGANIZAR ARCHIVOS)
 Si el estudiante responde confirmando la creación de la carpeta (por ejemplo: *"Sí, créala"*, *"Adelante"*, *"Organízalo"*, o si indica un nombre personalizado para la carpeta):
 1. **Ejecuta la organización:** Si tienes herramienta de terminal disponible, ejecuta:
-   `python "Plantemiento con indexacion/laboratorio_indexacion/auto_gestor.py" --organizar "<nombre_del_archivo.pdf>" "<Nombre_Carpeta>"`
+   `python "Plantemiento con indexacion/laboratorio_indexacion/auto_gestor.py" --organizar "<nombre_del_archivo.pdf>" "<Ruta_o_Nombre_Carpeta>"`
 2. **Confirma la acción realizada:** Responde cordialmente:
-   *"¡Perfecto! He creado el directorio en `1 Evaluación/`, he trasladado el archivo a su nueva ubicación y he actualizado el catálogo vivo de tu biblioteca para mantener todos tus temas organizados."*
+   *"¡Perfecto! He organizado el archivo en su directorio correspondiente y he actualizado el catálogo vivo de tu biblioteca para mantener todos tus temas en orden."*
 3. **Ofrece continuar con la clase:** Pregunta si desea empezar a estudiar la nueva materia organizada o cualquier otra del temario.
 
 ---

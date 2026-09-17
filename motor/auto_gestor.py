@@ -152,6 +152,8 @@ def analizar_tematica_y_sugerir_carpeta(ruta_doc, materias_existentes=None):
         return {
             "tematica": tematica,
             "sugerencia_carpeta": sug_carpeta,
+            "sugerencia_carpeta_nombre": sug_carpeta,
+            "ambito": "GENERAL",
             "afinidad_encontrada": False,
             "carpeta_existente": None,
             "pregunta_estudiante": pregunta
@@ -176,7 +178,10 @@ def analizar_tematica_y_sugerir_carpeta(ruta_doc, materias_existentes=None):
     else:
         tematica = nombre_limpio_archivo
 
-    # Evaluar si encaja en alguna materia ya existente
+    # Evaluar ámbito: ¿Curricular Académico o Interés Personal?
+    ambito = evaluar_ambito_documento(tematica, texto_inicio, materias_existentes)
+
+    # Evaluar afinidad con alguna materia existente
     afinidad_materia = None
     if materias_existentes:
         tokens_doc = set(re.findall(r'\b[a-záéíóúñ]{4,}\b', (tematica + " " + texto_inicio[:600]).lower()))
@@ -204,25 +209,96 @@ def analizar_tematica_y_sugerir_carpeta(ruta_doc, materias_existentes=None):
         return {
             "tematica": tematica,
             "sugerencia_carpeta": nombre_carpeta_existente,
+            "sugerencia_carpeta_nombre": nombre_carpeta_existente,
+            "ambito": "ACADEMICO",
             "afinidad_encontrada": True,
             "carpeta_existente": nombre_carpeta_existente,
             "pregunta_estudiante": pregunta
         }
-    else:
-        sug_carpeta = limpiar_para_nombre_carpeta(tematica)
+    elif ambito == "INTERES_PERSONAL":
+        sug_nombre = limpiar_para_nombre_carpeta(tematica)
+        sug_relativa = f"Intereses Personales/{sug_nombre}"
         pregunta = (
             f"He encontrado el archivo suelto '{ruta.name}'. Tras analizar su portada y contenido, "
-            f"he identificado que trata sobre '{tematica}'. Para mantener ordenada tu biblioteca, "
-            f"te aconsejo archivarlo en su propio directorio. ¿Deseas que creemos la carpeta "
-            f"`{sug_carpeta}` (o dime cómo prefieres llamarla) para guardarlo y ordenar tus temas?"
+            f"he identificado que trata sobre '{tematica}'. Veo que es un tema de interés personal que "
+            f"no entra en tus asignaturas oficiales de clase (Redes, Sistemas, Bases de Datos...). "
+            f"Ya que disfrutas aprendiendo sobre todo tipo de temas con tu tutor, para mantener limpio tu temario académico "
+            f"y no mezclarlo con tus materias de examen, te aconsejo archivarlo en su propia sección. "
+            f"¿Deseas que creemos la carpeta `{sug_relativa}` (o dime cómo prefieres llamarla) para guardarlo y ordenar tus temas?"
         )
         return {
             "tematica": tematica,
-            "sugerencia_carpeta": sug_carpeta,
+            "sugerencia_carpeta": sug_relativa,
+            "sugerencia_carpeta_nombre": sug_nombre,
+            "ambito": "INTERES_PERSONAL",
             "afinidad_encontrada": False,
             "carpeta_existente": None,
             "pregunta_estudiante": pregunta
         }
+    else:
+        sug_nombre = limpiar_para_nombre_carpeta(tematica)
+        sug_relativa = f"1 Evaluación/{sug_nombre}"
+        pregunta = (
+            f"He encontrado el archivo suelto '{ruta.name}'. Tras analizar su portada y contenido, "
+            f"he identificado que trata sobre '{tematica}', perteneciente a tu ámbito de estudio. "
+            f"Para mantener ordenada tu biblioteca, te aconsejo archivarlo en su propio directorio. "
+            f"¿Deseas que creemos la carpeta `{sug_relativa}` (o dime cómo prefieres llamarla) para guardarlo y ordenar tus temas?"
+        )
+        return {
+            "tematica": tematica,
+            "sugerencia_carpeta": sug_relativa,
+            "sugerencia_carpeta_nombre": sug_nombre,
+            "ambito": "ACADEMICO",
+            "afinidad_encontrada": False,
+            "carpeta_existente": None,
+            "pregunta_estudiante": pregunta
+        }
+
+def evaluar_ambito_documento(tematica, texto_inicio, materias_existentes=None):
+    """
+    Determina si un documento pertenece al ámbito académico formal (currículo de clase)
+    o a un ámbito extracurricular / interés personal (mascotas, aficiones, botánica, etc.).
+    """
+    tokens_academicos = {
+        'redes', 'datos', 'base', 'bases', 'sistemas', 'operativos', 'software', 'hardware', 
+        'programacion', 'marcas', 'html', 'css', 'digitalizacion', 'protocolo', 'ip', 'tcp', 
+        'router', 'switch', 'sql', 'servidor', 'computador', 'ordenador', 'informatica', 
+        'evaluacion', 'tarea', 'actividad', 'ejercicio', 'practica', 'examen', 'packet', 'tracer',
+        'cuestionario', 'competencias', 'digitales', 'implantacion', 'administracion'
+    }
+    
+    if materias_existentes:
+        for mat in materias_existentes.values():
+            if not mat.get("es_archivo_suelto") and not mat.get("es_interes_personal"):
+                tokens_academicos.update(re.findall(r'\b[a-záéíóúñ]{4,}\b', mat.get("nombre", "").lower()))
+                
+    texto_eval = (tematica + " " + (texto_inicio or "")[:1200]).lower()
+    tokens_doc = set(re.findall(r'\b[a-záéíóúñ]{4,}\b', texto_eval))
+    
+    terminos_personales = {
+        'gato', 'gatito', 'gatitos', 'felino', 'felinos', 'perro', 'perros', 'cachorro', 'canino', 
+        'mascota', 'mascotas', 'veterinaria', 'cultivo', 'tomate', 'huerto', 'jardin', 'plantas', 
+        'botanica', 'cocina', 'receta', 'alimentacion', 'nutricion', 'guitarra', 'musica', 
+        'deporte', 'entrenamiento', 'aficion', 'hobby', 'videojuego', 'horticultura', 'animales'
+    }
+    
+    coincidencias_personales = tokens_doc.intersection(terminos_personales)
+    coincidencias_academicas = tokens_doc.intersection(tokens_academicos)
+    
+    # Si detecta términos marcadamente personales y baja relación con el temario académico
+    if coincidencias_personales and len(coincidencias_academicas) <= 1:
+        return "INTERES_PERSONAL"
+        
+    # Si tiene relación clara con materias de clase
+    if len(coincidencias_academicas) >= 2:
+        return "ACADEMICO"
+        
+    # Si no tiene coincidencias con el curso oficial
+    if len(coincidencias_academicas) == 0:
+        return "INTERES_PERSONAL"
+        
+    return "ACADEMICO"
+
 
 
 def generar_codigo_materia(nombre_carpeta):
@@ -295,24 +371,35 @@ class AutoGestor:
         if self.carpeta_evaluacion.exists() and self.carpeta_evaluacion.is_dir():
             carpetas_a_escanear.extend([d for d in self.carpeta_evaluacion.iterdir() if d.is_dir()])
 
-        # 2. Explorar subcarpetas en la raíz del proyecto
+        # 2. Explorar subcarpetas en 'Intereses Personales' (si existe)
+        carpeta_intereses = self.raiz / "Intereses Personales"
+        if carpeta_intereses.exists() and carpeta_intereses.is_dir():
+            carpetas_a_escanear.extend([d for d in carpeta_intereses.iterdir() if d.is_dir()])
+
+        # 3. Explorar subcarpetas en la raíz del proyecto
         for item in self.raiz.iterdir():
-            if item.is_dir() and item.name not in carpetas_ignoradas and item.name != "1 Evaluación":
+            if item.is_dir() and item.name not in carpetas_ignoradas and item.name not in ("1 Evaluación", "Intereses Personales"):
                 carpetas_a_escanear.append(item)
 
-        # 3. Procesar cada carpeta
+        # 4. Procesar cada carpeta
         for carp in carpetas_a_escanear:
             docs = list(carp.rglob("*.pdf")) + list(carp.rglob("*.docx"))
             if docs:
                 codigo = generar_codigo_materia(carp.name)
                 nombre_base = limpiar_nombre_materia(carp.name)
 
-                # Si el nombre de la carpeta es genérico (ej. 'tema general', 'varios', 'apuntes')
-                # inferir el tema del contenido de su primer documento
+                es_personal = (
+                    "interes" in str(carp).lower() or 
+                    carp.parent.name == "Intereses Personales" or
+                    any(k in carp.name.lower() for k in ["gato", "gatito", "felino", "mascota", "tomate", "cultivo", "horticultura", "cocina"])
+                )
+
                 nombre_descriptivo = nombre_base
                 if any(k in nombre_base.lower() for k in ["tema general", "varios", "apuntes", "documentos", "general", "otros"]):
                     tema_portada = extraer_titulo_portada(docs[0])
                     nombre_descriptivo = f"{nombre_base.upper()}: {tema_portada}"
+                    if any(k in tema_portada.lower() for k in ["tomate", "cultivo", "gato", "gatito"]):
+                        es_personal = True
 
                 if codigo in materias_detectadas and materias_detectadas[codigo]["ruta"] != str(carp):
                     codigo = f"{codigo}_{len(materias_detectadas)}"
@@ -322,14 +409,17 @@ class AutoGestor:
                     "ruta": str(carp),
                     "total_docs": len(docs),
                     "es_archivo_suelto": False,
+                    "es_interes_personal": es_personal,
                     "documentos": [str(d) for d in docs]
                 }
                 total_docs += len(docs)
 
-        # 4. Procesar ARCHIVOS SUELTOS (PDFs o DOCXs sin carpeta)
+        # 5. Procesar ARCHIVOS SUELTOS (PDFs o DOCXs sin carpeta)
         rutas_sueltas = []
         if self.carpeta_evaluacion.exists():
             rutas_sueltas.extend([f for f in self.carpeta_evaluacion.glob("*.pdf")] + [f for f in self.carpeta_evaluacion.glob("*.docx")])
+        if carpeta_intereses.exists():
+            rutas_sueltas.extend([f for f in carpeta_intereses.glob("*.pdf")] + [f for f in carpeta_intereses.glob("*.docx")])
         rutas_sueltas.extend([f for f in self.raiz.glob("*.pdf")] + [f for f in self.raiz.glob("*.docx")])
 
         rutas_sueltas_unicas = []
@@ -357,7 +447,10 @@ class AutoGestor:
                 "ruta": str(doc_suelto),
                 "total_docs": 1,
                 "es_archivo_suelto": True,
+                "es_interes_personal": (analisis.get("ambito") == "INTERES_PERSONAL"),
+                "ambito": analisis.get("ambito", "ACADEMICO"),
                 "sugerencia_carpeta": analisis['sugerencia_carpeta'],
+                "sugerencia_carpeta_nombre": analisis.get('sugerencia_carpeta_nombre', analisis['sugerencia_carpeta']),
                 "afinidad_encontrada": analisis['afinidad_encontrada'],
                 "carpeta_existente": analisis['carpeta_existente'],
                 "pregunta_estudiante": analisis['pregunta_estudiante'],
@@ -473,19 +566,41 @@ class AutoGestor:
                     lineas.append(f"  * **Pregunta organizativa al estudiante:** \"{s.get('pregunta_estudiante', '')}\"")
                 lineas.append("")
 
-            lineas.append("## 🗂️ Materias y Asignaturas Disponibles:")
+            # 1. Separar materias en Académicas y de Interés Personal
+            academicas = [(cod, inf) for cod, inf in revision["materias"].items() if not inf.get("es_interes_personal") and not inf.get("es_archivo_suelto")]
+            personales = [(cod, inf) for cod, inf in revision["materias"].items() if inf.get("es_interes_personal") and not inf.get("es_archivo_suelto")]
             
-            emojis = ["🗄️", "🌐", "🖥️", "📄", "🏭", "🍅", "🌱", "🔬", "📚", "⚖️", "📊", "💡"]
-            for idx, (codigo, info) in enumerate(revision["materias"].items(), start=1):
-                emoji = emojis[(idx - 1) % len(emojis)]
-                lineas.append(f"### [{idx}] {emoji} **{codigo}:** {info['nombre']}")
-                lineas.append(f"- **Documentos ({info['total_docs']}):**")
-                for doc_path in info["documentos"][:5]:
-                    nombre_archivo = Path(doc_path).name
-                    lineas.append(f"  * `{nombre_archivo}`")
-                if info["total_docs"] > 5:
-                    lineas.append(f"  * *(y {info['total_docs'] - 5} documentos adicionales)*")
-                lineas.append("")
+            emojis_acad = ["🗄️", "🌐", "🖥️", "📄", "🏭", "📊", "💡", "🔬"]
+            emojis_pers = ["🐱", "🍅", "🌱", "🐾", "🎸", "🍳", "📚", "✨"]
+
+            contador_global = 1
+            if academicas:
+                lineas.append("## 🎓 ASIGNATURAS OFICIALES (EVALUACIÓN ACADÉMICA):")
+                for cod, info in academicas:
+                    emoji = emojis_acad[(contador_global - 1) % len(emojis_acad)]
+                    lineas.append(f"### [{contador_global}] {emoji} **{cod}:** {info['nombre']}")
+                    lineas.append(f"- **Documentos ({info['total_docs']}):**")
+                    for doc_path in info["documentos"][:5]:
+                        nombre_archivo = Path(doc_path).name
+                        lineas.append(f"  * `{nombre_archivo}`")
+                    if info["total_docs"] > 5:
+                        lineas.append(f"  * *(y {info['total_docs'] - 5} documentos adicionales)*")
+                    lineas.append("")
+                    contador_global += 1
+
+            if personales:
+                lineas.append("## 🌟 TUS TEMAS DE INTERÉS PERSONAL Y HOBBIES:")
+                for cod, info in personales:
+                    emoji = emojis_pers[(contador_global - 1) % len(emojis_pers)]
+                    lineas.append(f"### [{contador_global}] {emoji} **{cod}:** {info['nombre']}")
+                    lineas.append(f"- **Documentos ({info['total_docs']}):**")
+                    for doc_path in info["documentos"][:5]:
+                        nombre_archivo = Path(doc_path).name
+                        lineas.append(f"  * `{nombre_archivo}`")
+                    if info["total_docs"] > 5:
+                        lineas.append(f"  * *(y {info['total_docs'] - 5} documentos adicionales)*")
+                    lineas.append("")
+                    contador_global += 1
 
             contenido = "\n".join(lineas)
 
@@ -503,15 +618,16 @@ class AutoGestor:
 
     def organizar_archivo(self, archivo_nombre_o_ruta, nombre_carpeta):
         """
-        Crea físicamente la carpeta dentro de 1 Evaluación/ y traslada el archivo suelto,
-        reindexando y actualizando el catálogo automáticamente.
+        Crea físicamente la carpeta (en 'Intereses Personales/' o '1 Evaluación/')
+        y traslada el archivo suelto, reindexando y actualizando el catálogo automáticamente.
         """
         import shutil
         ruta_origen = Path(archivo_nombre_o_ruta)
         if not ruta_origen.is_absolute():
-            # Buscar en 1 Evaluación o en la raíz
+            # Buscar en 1 Evaluación, en Intereses Personales o en la raíz
             posibles = [
                 self.carpeta_evaluacion / ruta_origen.name,
+                self.raiz / "Intereses Personales" / ruta_origen.name,
                 self.raiz / ruta_origen.name
             ]
             for p in posibles:
@@ -525,7 +641,24 @@ class AutoGestor:
                 "error": f"No se encontró el archivo '{archivo_nombre_o_ruta}' para organizar."
             }
 
-        carpeta_destino = self.carpeta_evaluacion / nombre_carpeta
+        p_carpeta = Path(nombre_carpeta)
+        if p_carpeta.is_absolute():
+            carpeta_destino = p_carpeta
+        elif p_carpeta.parts and p_carpeta.parts[0] in ("1 Evaluación", "Intereses Personales"):
+            carpeta_destino = self.raiz / p_carpeta
+        elif "interes" in str(nombre_carpeta).lower():
+            carpeta_destino = self.raiz / "Intereses Personales" / p_carpeta.name
+        else:
+            nombre_carpeta_lower = str(nombre_carpeta).lower()
+            es_personal = (
+                (self.raiz / "Intereses Personales" / p_carpeta.name).exists() or
+                any(k in nombre_carpeta_lower for k in ["gato", "gatito", "felino", "mascota", "tomate", "cultivo", "horticultura", "cocina"])
+            )
+            if es_personal:
+                carpeta_destino = self.raiz / "Intereses Personales" / p_carpeta.name
+            else:
+                carpeta_destino = self.carpeta_evaluacion / p_carpeta.name
+
         carpeta_destino.mkdir(parents=True, exist_ok=True)
         destino_final = carpeta_destino / ruta_origen.name
 
@@ -544,7 +677,7 @@ class AutoGestor:
             "archivo_original": ruta_origen.name,
             "carpeta_creada": str(carpeta_destino),
             "ruta_final": str(destino_final),
-            "mensaje": f"Archivo '{ruta_origen.name}' movido exitosamente a la carpeta '{nombre_carpeta}'."
+            "mensaje": f"Archivo '{ruta_origen.name}' movido exitosamente a '{carpeta_destino.relative_to(self.raiz)}'."
         }
 
     def actualizar_manifest(self):
