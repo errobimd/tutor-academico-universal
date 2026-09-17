@@ -40,7 +40,7 @@ def limpiar_nombre_materia(nombre_carpeta):
 
 def extraer_titulo_portada(ruta_doc):
     """
-    Lee las primeras líneas de la página 1 de un PDF o DOCX para inferir
+    Lee las primeras líneas de la página 1 y 2 de un PDF o DOCX para inferir
     el título o temática real del documento de forma autónoma.
     """
     ruta = Path(ruta_doc)
@@ -51,22 +51,23 @@ def extraer_titulo_portada(ruta_doc):
             reader = pypdf.PdfReader(str(ruta))
             if reader.pages:
                 texto_inicio = reader.pages[0].extract_text() or ""
+                if len(texto_inicio.strip()) < 150 and len(reader.pages) > 1:
+                    p1 = reader.pages[1].extract_text() or ""
+                    texto_inicio += "\n" + p1
         elif ruta.suffix.lower() == ".docx":
             import docx
             doc = docx.Document(str(ruta))
             parrafos = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-            texto_inicio = "\n".join(parrafos[:6])
+            texto_inicio = "\n".join(parrafos[:8])
     except Exception:
         pass
 
     if not texto_inicio:
-        return ruta.stem
+        return re.sub(r'[-_.]+', ' ', ruta.stem).strip()
 
     lineas = [l.strip() for l in texto_inicio.split("\n") if len(l.strip()) > 3]
-    lineas_validas = []
-    for l in lineas:
-        if not re.match(r'^(página|page|\d+guía|\d+|http|www|versión|octubre|noviembre|diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre)', l, re.I):
-            lineas_validas.append(l)
+    patron_ruido = r'^(página|page|\d+guía|\d+|http|www|versión|octubre|noviembre|diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|copyright|todos los derechos|isbn|depósito|deposito|autor|autores|profesor|docente)'
+    lineas_validas = [l for l in lineas if not re.match(patron_ruido, l, re.I)]
 
     if lineas_validas:
         frase = []
@@ -74,13 +75,155 @@ def extraer_titulo_portada(ruta_doc):
         for l in lineas_validas[:4]:
             frase.append(l)
             caracteres += len(l)
-            if caracteres > 35:
+            if caracteres > 45:
                 break
         titulo = " ".join(frase)
         titulo = re.sub(r'\s+', ' ', titulo).strip()
         return titulo[:90]
 
-    return ruta.stem
+    return re.sub(r'[-_.]+', ' ', ruta.stem).strip()
+
+def limpiar_para_nombre_carpeta(texto, max_len=30):
+    """Convierte un texto o temática en un nombre de directorio limpio, representativo y amigable para Windows."""
+    if not texto:
+        return "Materia_Nueva"
+    # Eliminar caracteres prohibidos en rutas de Windows / Unix y puntuación extraña
+    limpio = re.sub(r'[\\/:*?"<>|#%&{}<>$!\'":@+`|=_~^.,;()\[\]]', ' ', texto)
+    limpio = re.sub(r'\s+', ' ', limpio).strip()
+    
+    palabras_vacias = {
+        'de', 'la', 'el', 'en', 'y', 'del', 'los', 'las', 'un', 'una', 'para', 'con', 'por', 
+        'sobre', 'al', 'se', 'su', 'sus', 'como', 'manual', 'guia', 'apuntes', 'introduccion'
+    }
+    
+    palabras = [p for p in limpio.split(' ') if len(p) > 1]
+    significativas = [p for p in palabras if quitar_tildes(p).lower() not in palabras_vacias]
+    
+    if significativas:
+        candidato = " ".join([p.capitalize() for p in significativas[:4]])
+    elif palabras:
+        candidato = " ".join([p.capitalize() for p in palabras[:3]])
+    else:
+        candidato = "Materia_Nueva"
+        
+    if len(candidato) > max_len:
+        candidato = candidato[:max_len].rsplit(' ', 1)[0]
+        
+    return candidato.strip() or "Materia_Nueva"
+
+def analizar_tematica_y_sugerir_carpeta(ruta_doc, materias_existentes=None):
+    """
+    Lee la portada y contenido inicial de un documento suelto para:
+    1. Identificar su temática real y título representativo.
+    2. Evaluar si pertenece a alguna materia/directorio ya existente.
+    3. Si es una temática nueva, sugerir un nombre de directorio limpio.
+    4. Formular el consejo organizativo directo para el estudiante.
+    """
+    ruta = Path(ruta_doc)
+    texto_inicio = ""
+    try:
+        if ruta.suffix.lower() == ".pdf":
+            import pypdf
+            reader = pypdf.PdfReader(str(ruta))
+            num_paginas = len(reader.pages)
+            if num_paginas > 0:
+                p0 = reader.pages[0].extract_text() or ""
+                texto_inicio = p0
+                if len(p0.strip()) < 150 and num_paginas > 1:
+                    p1 = reader.pages[1].extract_text() or ""
+                    texto_inicio += "\n" + p1
+        elif ruta.suffix.lower() == ".docx":
+            import docx
+            doc = docx.Document(str(ruta))
+            parrafos = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+            texto_inicio = "\n".join(parrafos[:10])
+    except Exception:
+        pass
+
+    nombre_limpio_archivo = re.sub(r'[-_.]+', ' ', ruta.stem).strip()
+    if not texto_inicio or len(texto_inicio.strip()) < 10:
+        tematica = nombre_limpio_archivo
+        sug_carpeta = limpiar_para_nombre_carpeta(nombre_limpio_archivo)
+        pregunta = (
+            f"He encontrado el archivo suelto '{ruta.name}'. Para mantener ordenada tu biblioteca, "
+            f"te aconsejo guardarlo en un directorio propio. ¿Quieres que creemos la carpeta "
+            f"`{sug_carpeta}` (o dime cómo prefieres que se llame) y lo traslademos allí?"
+        )
+        return {
+            "tematica": tematica,
+            "sugerencia_carpeta": sug_carpeta,
+            "afinidad_encontrada": False,
+            "carpeta_existente": None,
+            "pregunta_estudiante": pregunta
+        }
+
+    lineas = [l.strip() for l in texto_inicio.split("\n") if len(l.strip()) > 3]
+    patron_ruido = r'^(página|page|\d+guía|\d+|http|www|versión|octubre|noviembre|diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|copyright|todos los derechos|isbn|depósito|deposito|autor|autores|profesor|docente)'
+    lineas_filtradas = [l for l in lineas if not re.match(patron_ruido, l, re.I)]
+
+    if lineas_filtradas:
+        frase = []
+        caracteres = 0
+        for l in lineas_filtradas[:4]:
+            if len(re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ]', l)) < len(l) * 0.4:
+                continue
+            frase.append(l)
+            caracteres += len(l)
+            if caracteres > 45:
+                break
+        tematica = " ".join(frase)
+        tematica = re.sub(r'\s+', ' ', tematica).strip()[:90]
+    else:
+        tematica = nombre_limpio_archivo
+
+    # Evaluar si encaja en alguna materia ya existente
+    afinidad_materia = None
+    if materias_existentes:
+        tokens_doc = set(re.findall(r'\b[a-záéíóúñ]{4,}\b', (tematica + " " + texto_inicio[:600]).lower()))
+        mejor_coincidencia = 0
+        
+        for cod, mat in materias_existentes.items():
+            if mat.get("es_archivo_suelto"):
+                continue
+            nombre_mat = mat.get("nombre", "")
+            tokens_mat = set(re.findall(r'\b[a-záéíóúñ]{4,}\b', nombre_mat.lower()))
+            comunes = tokens_doc.intersection(tokens_mat)
+            comunes = {c for c in comunes if c not in {'tema', 'general', 'curso', 'evaluacion', 'apuntes'}}
+            if len(comunes) > mejor_coincidencia and len(comunes) >= 2:
+                mejor_coincidencia = len(comunes)
+                afinidad_materia = mat
+
+    if afinidad_materia:
+        nombre_carpeta_existente = Path(afinidad_materia["ruta"]).name
+        pregunta = (
+            f"He encontrado el archivo suelto '{ruta.name}'. Tras analizar su contenido, "
+            f"he identificado que trata sobre '{tematica}', lo cual se relaciona directamente con tu asignatura "
+            f"'{afinidad_materia['nombre']}'. A modo de organización de tu biblioteca, "
+            f"¿quieres que lo guardemos en la carpeta existente `{nombre_carpeta_existente}` para tener todos tus apuntes agrupados?"
+        )
+        return {
+            "tematica": tematica,
+            "sugerencia_carpeta": nombre_carpeta_existente,
+            "afinidad_encontrada": True,
+            "carpeta_existente": nombre_carpeta_existente,
+            "pregunta_estudiante": pregunta
+        }
+    else:
+        sug_carpeta = limpiar_para_nombre_carpeta(tematica)
+        pregunta = (
+            f"He encontrado el archivo suelto '{ruta.name}'. Tras analizar su portada y contenido, "
+            f"he identificado que trata sobre '{tematica}'. Para mantener ordenada tu biblioteca, "
+            f"te aconsejo archivarlo en su propio directorio. ¿Deseas que creemos la carpeta "
+            f"`{sug_carpeta}` (o dime cómo prefieres llamarla) para guardarlo y ordenar tus temas?"
+        )
+        return {
+            "tematica": tematica,
+            "sugerencia_carpeta": sug_carpeta,
+            "afinidad_encontrada": False,
+            "carpeta_existente": None,
+            "pregunta_estudiante": pregunta
+        }
+
 
 def generar_codigo_materia(nombre_carpeta):
     """Genera un identificador corto y limpio para la subcarpeta de almacenamiento."""
@@ -189,26 +332,35 @@ class AutoGestor:
             rutas_sueltas.extend([f for f in self.carpeta_evaluacion.glob("*.pdf")] + [f for f in self.carpeta_evaluacion.glob("*.docx")])
         rutas_sueltas.extend([f for f in self.raiz.glob("*.pdf")] + [f for f in self.raiz.glob("*.docx")])
 
-        for doc_suelto in rutas_sueltas:
-            # Ignorar archivos en carpetas de sistema
+        rutas_sueltas_unicas = []
+        vistas = set()
+        for r in rutas_sueltas:
+            res = str(r.resolve())
+            if res not in vistas:
+                vistas.add(res)
+                rutas_sueltas_unicas.append(r)
+
+        for doc_suelto in rutas_sueltas_unicas:
+            # Ignorar archivos en carpetas de sistema o temporales
             if doc_suelto.name.startswith("~$") or "temp" in doc_suelto.name.lower():
                 continue
-            tema_suelto = extraer_titulo_portada(doc_suelto)
+            
+            analisis = analizar_tematica_y_sugerir_carpeta(doc_suelto, materias_detectadas)
             cod_suelto = f"DOC_{generar_codigo_materia(doc_suelto.stem)}"
             if cod_suelto in materias_detectadas:
                 cod_suelto = f"{cod_suelto}_{len(materias_detectadas)}"
 
-            # Sugerencia de carpeta inteligente
-            sug_carpeta = "Cuidado de Gatos" if any(k in doc_suelto.name.lower() or k in tema_suelto.lower() for k in ["gatito", "gato", "felino"]) else f"Tema - {tema_suelto[:25]}"
-
             materias_detectadas[cod_suelto] = {
-                "nombre": f"[Documento Suelto] {tema_suelto} ({doc_suelto.name})",
-                "titulo_portada": tema_suelto,
+                "nombre": f"[Documento Suelto] {analisis['tematica']} ({doc_suelto.name})",
+                "titulo_portada": analisis['tematica'],
                 "nombre_archivo": doc_suelto.name,
                 "ruta": str(doc_suelto),
                 "total_docs": 1,
                 "es_archivo_suelto": True,
-                "sugerencia_carpeta": sug_carpeta,
+                "sugerencia_carpeta": analisis['sugerencia_carpeta'],
+                "afinidad_encontrada": analisis['afinidad_encontrada'],
+                "carpeta_existente": analisis['carpeta_existente'],
+                "pregunta_estudiante": analisis['pregunta_estudiante'],
                 "documentos": [str(doc_suelto)]
             }
             total_docs += 1
@@ -316,8 +468,9 @@ class AutoGestor:
                 lineas.append("### 📁 ASISTENTE DE ORGANIZACIÓN (ARCHIVOS SUELTOS):")
                 for s in sueltos:
                     lineas.append(f"- ⚠️ **Archivo suelto encontrado:** `{s['nombre_archivo']}`")
-                    lineas.append(f"  * **Título real de la portada:** \"{s.get('titulo_portada', s['nombre_archivo'])}\"")
-                    lineas.append(f"  * **Pregunta organizativa al estudiante:** \"He encontrado el archivo suelto '{s.get('titulo_portada', s['nombre_archivo'])}'. A modo de organización de tu biblioteca, ¿quieres que creemos una carpeta como `{s.get('sugerencia_carpeta', 'Nueva Carpeta')}` (o dime cómo prefieres que se llame la carpeta) para guardarlo y ordenar tus apuntes?\"")
+                    lineas.append(f"  * **Temática identificada:** \"{s.get('titulo_portada', s['nombre_archivo'])}\"")
+                    lineas.append(f"  * **Directorio sugerido:** `{s.get('sugerencia_carpeta', 'Nueva_Carpeta')}`")
+                    lineas.append(f"  * **Pregunta organizativa al estudiante:** \"{s.get('pregunta_estudiante', '')}\"")
                 lineas.append("")
 
             lineas.append("## 🗂️ Materias y Asignaturas Disponibles:")
