@@ -339,10 +339,60 @@ class AutoGestor:
         try:
             with open(self.ruta_catalogo_md, "w", encoding="utf-8") as f:
                 f.write(contenido)
+            # También guardar en 1 Evaluación para visibilidad directa en Bionic Studio
+            if self.carpeta_evaluacion.exists():
+                with open(self.carpeta_evaluacion / "TEMARIO_ACTIVO.md", "w", encoding="utf-8") as f:
+                    f.write(contenido)
         except Exception:
             pass
 
         return self.ruta_catalogo_md
+
+    def organizar_archivo(self, archivo_nombre_o_ruta, nombre_carpeta):
+        """
+        Crea físicamente la carpeta dentro de 1 Evaluación/ y traslada el archivo suelto,
+        reindexando y actualizando el catálogo automáticamente.
+        """
+        import shutil
+        ruta_origen = Path(archivo_nombre_o_ruta)
+        if not ruta_origen.is_absolute():
+            # Buscar en 1 Evaluación o en la raíz
+            posibles = [
+                self.carpeta_evaluacion / ruta_origen.name,
+                self.raiz / ruta_origen.name
+            ]
+            for p in posibles:
+                if p.exists():
+                    ruta_origen = p
+                    break
+
+        if not ruta_origen.exists():
+            return {
+                "exito": False,
+                "error": f"No se encontró el archivo '{archivo_nombre_o_ruta}' para organizar."
+            }
+
+        carpeta_destino = self.carpeta_evaluacion / nombre_carpeta
+        carpeta_destino.mkdir(parents=True, exist_ok=True)
+        destino_final = carpeta_destino / ruta_origen.name
+
+        shutil.move(str(ruta_origen), str(destino_final))
+
+        # Reindexar el proyecto para reflejar la nueva estructura
+        from indexador_academico import IndexadorAcademico
+        indexador = IndexadorAcademico(raiz_proyecto=self.raiz)
+        indexador.indexar_todo()
+
+        # Actualizar manifest y catálogo
+        self.actualizar_manifest()
+
+        return {
+            "exito": True,
+            "archivo_original": ruta_origen.name,
+            "carpeta_creada": str(carpeta_destino),
+            "ruta_final": str(destino_final),
+            "mensaje": f"Archivo '{ruta_origen.name}' movido exitosamente a la carpeta '{nombre_carpeta}'."
+        }
 
     def actualizar_manifest(self):
         self.carpeta_storage.mkdir(parents=True, exist_ok=True)
@@ -363,12 +413,22 @@ class AutoGestor:
         with open(self.ruta_manifest, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)
 
-        # Generar catálogo Markdown
+        # Generar catálogo Markdown (en raíz y en 1 Evaluación)
         self.generar_catalogo_markdown()
         return manifest
 
 if __name__ == "__main__":
+    import sys
     gestor = AutoGestor()
-    cambios = gestor.detectar_cambios_documentos()
-    gestor.generar_catalogo_markdown(novedades=cambios.get("novedades_titulos", []))
-    print(json.dumps(cambios, indent=2, ensure_ascii=False))
+    if len(sys.argv) > 2 and sys.argv[1] == "--organizar":
+        archivo_arg = sys.argv[2]
+        carpeta_arg = sys.argv[3] if len(sys.argv) > 3 else "Nueva Carpeta"
+        resultado = gestor.organizar_archivo(archivo_arg, carpeta_arg)
+        print(json.dumps(resultado, indent=2, ensure_ascii=False))
+    elif len(sys.argv) > 1 and sys.argv[1] == "--actualizar":
+        manifest = gestor.actualizar_manifest()
+        print("Manifest y catálogo actualizados exitosamente.")
+    else:
+        cambios = gestor.detectar_cambios_documentos()
+        gestor.generar_catalogo_markdown(novedades=cambios.get("novedades_titulos", []))
+        print(json.dumps(cambios, indent=2, ensure_ascii=False))
