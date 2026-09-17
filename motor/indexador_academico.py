@@ -185,7 +185,10 @@ class IndexadorAcademico:
             carpeta_indice = self.carpeta_storage / codigo
             carpeta_indice.mkdir(parents=True, exist_ok=True)
 
-            documentos = list(ruta_materia.rglob("*.pdf")) + list(ruta_materia.rglob("*.docx"))
+            if ruta_materia.is_file():
+                documentos = [ruta_materia]
+            else:
+                documentos = list(ruta_materia.rglob("*.pdf")) + list(ruta_materia.rglob("*.docx"))
             nodos_materia = []
             temas_detectados = set()
 

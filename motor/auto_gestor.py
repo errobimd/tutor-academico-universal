@@ -65,11 +65,18 @@ def extraer_titulo_portada(ruta_doc):
     lineas = [l.strip() for l in texto_inicio.split("\n") if len(l.strip()) > 3]
     lineas_validas = []
     for l in lineas:
-        if not re.match(r'^(página|page|\d+|http|www|versión|octubre|noviembre|diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre)', l, re.I):
+        if not re.match(r'^(página|page|\d+guía|\d+|http|www|versión|octubre|noviembre|diciembre|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre)', l, re.I):
             lineas_validas.append(l)
 
     if lineas_validas:
-        titulo = " - ".join(lineas_validas[:2])
+        frase = []
+        caracteres = 0
+        for l in lineas_validas[:4]:
+            frase.append(l)
+            caracteres += len(l)
+            if caracteres > 35:
+                break
+        titulo = " ".join(frase)
         titulo = re.sub(r'\s+', ' ', titulo).strip()
         return titulo[:90]
 
@@ -191,11 +198,17 @@ class AutoGestor:
             if cod_suelto in materias_detectadas:
                 cod_suelto = f"{cod_suelto}_{len(materias_detectadas)}"
 
+            # Sugerencia de carpeta inteligente
+            sug_carpeta = "Cuidado de Gatos" if any(k in doc_suelto.name.lower() or k in tema_suelto.lower() for k in ["gatito", "gato", "felino"]) else f"Tema - {tema_suelto[:25]}"
+
             materias_detectadas[cod_suelto] = {
                 "nombre": f"[Documento Suelto] {tema_suelto} ({doc_suelto.name})",
+                "titulo_portada": tema_suelto,
+                "nombre_archivo": doc_suelto.name,
                 "ruta": str(doc_suelto),
                 "total_docs": 1,
                 "es_archivo_suelto": True,
+                "sugerencia_carpeta": sug_carpeta,
                 "documentos": [str(doc_suelto)]
             }
             total_docs += 1
@@ -295,6 +308,16 @@ class AutoGestor:
                 lineas.append("### 📢 ¡NUEVOS DOCUMENTOS DETECTADOS RECIENTEMENTE!")
                 for nov in novedades:
                     lineas.append(f"- 🔔 **{nov}**")
+                lineas.append("")
+
+            # Propuestas de organización para archivos sueltos
+            sueltos = [info for info in revision["materias"].values() if info.get("es_archivo_suelto")]
+            if sueltos:
+                lineas.append("### 📁 ASISTENTE DE ORGANIZACIÓN (ARCHIVOS SUELTOS):")
+                for s in sueltos:
+                    lineas.append(f"- ⚠️ **Archivo suelto encontrado:** `{s['nombre_archivo']}`")
+                    lineas.append(f"  * **Título real de la portada:** \"{s.get('titulo_portada', s['nombre_archivo'])}\"")
+                    lineas.append(f"  * **Pregunta organizativa al estudiante:** \"He encontrado el archivo suelto '{s.get('titulo_portada', s['nombre_archivo'])}'. A modo de organización de tu biblioteca, ¿quieres que creemos una carpeta como `{s.get('sugerencia_carpeta', 'Nueva Carpeta')}` (o dime cómo prefieres que se llame la carpeta) para guardarlo y ordenar tus apuntes?\"")
                 lineas.append("")
 
             lineas.append("## 🗂️ Materias y Asignaturas Disponibles:")
