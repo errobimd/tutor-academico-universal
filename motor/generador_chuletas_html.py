@@ -80,30 +80,70 @@ def generar_html_chuleta(datos_materia, nodos, ruta_salida):
           <p>$$N_{10} = d_n \cdot b^n + \dots + d_1 \cdot b^1 + d_0 \cdot b^0$$</p>
         </div>
         <div class="formula-box">
-          <div class="formula-title">2. Divisiones Sucesivas (Decimal a Base $b$):</div>
-          <p style="font-size: 9px; margin-bottom: 3px;">Dividir sucesivamente entre la base <b>$b$</b>. El resultado se lee desde el <b>último cociente</b> seguido de los <b>restos en orden inverso</b>:</p>
-          <div style="text-align: center;">
-          $$
-          \begin{array}{r|l}
-          53 & 2 \\
-          \hline
-          26 & 2 \quad \to \text{Resto: } \mathbf{1} \\
-          \hline
-          13 & 2 \quad \to \text{Resto: } \mathbf{0} \\
-          \hline
-          6 & 2 \quad \to \text{Resto: } \mathbf{1} \\
-          \hline
-          3 & 2 \quad \to \text{Resto: } \mathbf{0} \\
-          \hline
-          \mathbf{1} & 2 \quad \to \text{Resto: } \mathbf{1} \\
-          \hline
-          & \mathbf{1} \quad \leftarrow \text{Último cociente}
-          \end{array}
-          $$
-          </div>
-          <p style="text-align: center; font-size: 10px; font-weight: bold; margin-top: 3px;">
-            $$\implies 53_{10} = \mathbf{110101}_2$$
+          <div class="formula-title">2. Divisiones Sucesivas (Cajetín Tradicional de Examen):</div>
+          <p style="font-size: 8.5px; color: #475569; margin-bottom: 4px;">
+            Paso a binario (Base 2): Se divide entre 2 sucesivamente. Cada nuevo cociente pasa a ser dividendo del siguiente cajetín.
           </p>
+          
+          <div class="paper-math">
+            <table class="division-table">
+              <tr>
+                <td style="font-weight: 800; font-size: 11px;">53</td>
+                <td class="cajetin">2</td>
+                <td colspan="4"></td>
+              </tr>
+              <tr>
+                <td><span class="resto-circulo" title="1º Resto">1</span></td>
+                <td style="font-weight: 800; font-size: 11px;">26</td>
+                <td class="cajetin">2</td>
+                <td colspan="3"></td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><span class="resto-circulo" title="2º Resto">0</span></td>
+                <td style="font-weight: 800; font-size: 11px;">13</td>
+                <td class="cajetin">2</td>
+                <td colspan="2"></td>
+              </tr>
+              <tr>
+                <td colspan="2"></td>
+                <td><span class="resto-circulo" title="3º Resto">1</span></td>
+                <td style="font-weight: 800; font-size: 11px;">6</td>
+                <td class="cajetin">2</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colspan="3"></td>
+                <td><span class="resto-circulo" title="4º Resto">0</span></td>
+                <td style="font-weight: 800; font-size: 11px;">3</td>
+                <td class="cajetin">2</td>
+              </tr>
+              <tr>
+                <td colspan="4"></td>
+                <td><span class="resto-circulo" title="5º Resto">1</span></td>
+                <td><span class="cociente-final" title="Último Cociente">1</span></td>
+              </tr>
+            </table>
+
+            <div class="flecha-lectura">
+              <span style="color: #475569; font-weight: 700;">Sentido de lectura (abajo ➔ arriba):</span>
+              <span class="cociente-final" title="Último cociente">1</span>
+              <span style="color: #dc2626; font-weight: 900;">➔</span>
+              <span class="resto-circulo">1</span>
+              <span style="color: #dc2626; font-weight: 900;">➔</span>
+              <span class="resto-circulo">0</span>
+              <span style="color: #dc2626; font-weight: 900;">➔</span>
+              <span class="resto-circulo">1</span>
+              <span style="color: #dc2626; font-weight: 900;">➔</span>
+              <span class="resto-circulo">0</span>
+              <span style="color: #dc2626; font-weight: 900;">➔</span>
+              <span class="resto-circulo">1</span>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 4px;">
+            <span class="resultado-badge">Resultado: 53<sub>10</sub> = 110101<sub>2</sub></span>
+          </div>
         </div>
         """
         errores_fatales = [
@@ -374,6 +414,91 @@ def generar_html_chuleta(datos_materia, nodos, ruta_salida):
       padding: 1px 3px;
       border-radius: 2px;
       flex-shrink: 0;
+    }}
+
+    /* Estilos Libreta / Examen para Divisiones Sucesivas */
+    .paper-math {{
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 6px 4px;
+      margin-top: 3px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+    }}
+
+    .division-table {{
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 0 auto;
+      font-size: 11px;
+      line-height: 1.2;
+    }}
+
+    .division-table td {{
+      padding: 1px 5px;
+      text-align: center;
+      vertical-align: middle;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    }}
+
+    .cajetin {{
+      border-left: 2px solid #0f172a !important;
+      border-bottom: 2px solid #0f172a !important;
+      padding: 1px 7px !important;
+      font-weight: 800;
+      background: #f1f5f9;
+      color: #0f172a;
+      border-radius: 0 0 0 2px;
+    }}
+
+    .resto-circulo {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: #fee2e2;
+      border: 1.5px solid #dc2626;
+      color: #b91c1c;
+      font-weight: 800;
+      font-size: 9.5px;
+    }}
+
+    .cociente-final {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: #dcfce7;
+      border: 1.5px solid #16a34a;
+      color: #15803d;
+      font-weight: 800;
+      font-size: 9.5px;
+    }}
+
+    .flecha-lectura {{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      margin-top: 6px;
+      padding-top: 4px;
+      border-top: 1px dashed #cbd5e1;
+      font-size: 9px;
+    }}
+
+    .resultado-badge {{
+      background: #e0e7ff;
+      color: #3730a3;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 800;
+      font-size: 10.5px;
+      border: 1px solid #c7d2fe;
+      display: inline-block;
     }}
 
     /* Pie de página */
