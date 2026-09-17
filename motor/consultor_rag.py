@@ -180,27 +180,45 @@ class ConsultorRAG:
         citas = [f"[Fuente: {f['archivo']}, Página {f['pagina']}]" for f in fragmentos]
         citas_txt = " | ".join(citas)
 
-        if rol == "entrenador":
+        if rol in ("glosario", "vocabulario"):
             return (
-                "MODO ACTIVADO: ENTRENADOR PRÁCTICO\n"
+                "ETAPA 1 ACTIVADA: GLOSARIO INTUITIVO DE PALABRAS TÉCNICAS\n"
+                "- Identifica los términos técnicos clave de la consulta en los apuntes.\n"
+                "- Para cada término presenta: 1) Definición intuitiva con analogía cotidiana, 2) Definición formal del apunte, 3) Ejemplo real.\n"
+                f"- Cita oficial: {citas_txt}"
+            )
+        elif rol in ("guia", "esquema"):
+            return (
+                "ETAPA 2 ACTIVADA: GUÍA VISUAL Y ESENCIAL\n"
+                "- Genera un diagrama visual Mermaid (flowchart TD, graph LR o erDiagram).\n"
+                "- Resume los 3 a 5 pilares conceptuales indispensables sin paja teórica.\n"
+                f"- Cita oficial: {citas_txt}"
+            )
+        elif rol in ("entrenador", "taller", "ejercicios"):
+            return (
+                "ETAPA 3 ACTIVADA: TALLER PRÁCTICO Y EJERCICIOS\n"
                 "- Plantea el ejercicio o problema guiando al alumno paso a paso.\n"
-                "- Si la materia incluye cálculos matemáticos, fórmulas o dosificaciones, RENDERIZA EN KATEX.\n"
+                "- Si la materia incluye cálculos matemáticos, RENDERIZA EN KATEX con \\hline (cajetines o escaleras).\n"
                 "- No reveles el resultado final de golpe; pide al alumno que resuelva el siguiente paso.\n"
                 f"- Cita oficial: {citas_txt}"
             )
-        elif rol == "tribunal":
+        elif rol in ("tribunal", "test", "evaluacion"):
             return (
-                "MODO ACTIVADO: TRIBUNAL EVALUADOR\n"
-                "- Genera una pregunta tipo test cerrada con 4 opciones: A), B), C), D).\n"
-                "- 1 opción es la correcta y 3 son distractores basados en los conceptos o confusiones del temario.\n"
+                "ETAPA 4 ACTIVADA: EVALUACIÓN DUAL (TEST / PREGUNTAS ABIERTAS)\n"
+                "- Genera preguntas cerradas con 4 opciones (A, B, C, D) con 3 distractores basados en confusiones del temario, o preguntas de razonamiento abierto.\n"
                 "- NO reveles la solución hasta que el alumno responda.\n"
+                f"- Cita oficial: {citas_txt}"
+            )
+        elif rol in ("chuleta", "cheatsheet", "resumen"):
+            return (
+                "ETAPA 5 ACTIVADA: LA CHULETA DE 1 VISTAZO (CHEAT SHEET)\n"
+                "- Máxima densidad informativa: tablas de equivalencias, fórmulas KaTeX, glosario flash de 1 línea y semáforo de errores fatales.\n"
                 f"- Cita oficial: {citas_txt}"
             )
         elif rol == "coach":
             return (
                 "MODO ACTIVADO: COACH DE RESCATE\n"
                 "- Muestra empatía ante el suspenso y motiva al estudiante.\n"
-                "- Pregúntale qué parte o conceptos le costaron más en el examen.\n"
                 "- Identifica los conceptos indispensables que garantizan el aprobado.\n"
                 f"- Cita oficial: {citas_txt}"
             )
@@ -215,7 +233,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Consultor RAG Universal")
     parser.add_argument("--materia", required=True, help="Código o nombre de la materia")
     parser.add_argument("--pregunta", required=True, help="Pregunta del alumno")
-    parser.add_argument("--rol", default="mentor", choices=["mentor", "entrenador", "tribunal", "coach"])
+    parser.add_argument("--rol", default="mentor", choices=["mentor", "glosario", "guia", "entrenador", "tribunal", "chuleta", "coach"])
     parser.add_argument("--tema", default=None)
     args = parser.parse_args()
 
