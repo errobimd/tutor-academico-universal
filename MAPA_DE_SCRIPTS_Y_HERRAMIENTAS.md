@@ -48,7 +48,7 @@ graph TD
   - Revisa la biblioteca en busca de archivos nuevos.
   - Lee la portada de los PDFs para saber de qué tratan.
   - **Diferencia si es de clase o una afición:** Si ve que habla de informática lo asocia a `1 Evaluación/`; si habla de cuidar gatos o cultivar tomates, propone moverlo a `Intereses Personales/`.
-  - Mantiene actualizado el catálogo [`TEMARIO_ACTIVO.md`](file:///d:/Biblioteca_Temas/TEMARIO_ACTIVO.md).
+  - Mantiene actualizado el catálogo `TEMARIO_ACTIVO.md`.
 - **¿Cómo se ejecuta?:**
   - Para auditar la biblioteca: `python "Plantemiento con indexacion/laboratorio_indexacion/auto_gestor.py"`
   - Para mover un archivo a su carpeta: `python "Plantemiento con indexacion/laboratorio_indexacion/auto_gestor.py" --organizar "archivo.pdf" "NombreCarpeta"`
@@ -135,4 +135,4 @@ graph TD
 | **Comprobar si hay PDFs nuevos sueltos en la carpeta** | `python "Plantemiento con indexacion/laboratorio_indexacion/auto_gestor.py"` |
 | **Re-indexar los apuntes de una materia tras añadir temas** | `python "Plantemiento con indexacion/laboratorio_indexacion/indexador_academico.py" --materia REDA` |
 | **Probar el RAG con una pregunta de examen** | `python "Plantemiento con indexacion/laboratorio_indexacion/consultor_rag.py" --materia REDA --pregunta "Sistemas de numeración" --rol glosario` |
-| **Activar al tutor en Bionic con 1 clic** | Abre [`PROMPT_ACTIVACION_BIONIC.md`](file:///d:/Biblioteca_Temas/PROMPT_ACTIVACION_BIONIC.md) y copia el texto en el chat. |
+| **Activar al tutor en Bionic con 1 clic** | Abre `PROMPT_ACTIVACION_BIONIC.md` y copia el texto en el chat. |

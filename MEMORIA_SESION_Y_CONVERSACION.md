@@ -56,7 +56,7 @@ Durante la conversación se abordó la diferencia esencial entre ambos términos
 ### 2.5. Apuesta por la Simplicidad y la Soberanía Local (Bionic)
 El usuario evaluó la opción de desplegar servidores web o nubes como RunPod, concluyendo que la experiencia de usuario óptima para un alumno que ya tiene **Bionic** consiste en centrarse en el **Skill** (`SKILL.md`).
 - Se descartaron complejidades en la nube.
-- Se creó la guía [`PROMPT_ACTIVACION_BIONIC.md`](file:///d:/Biblioteca_Temas/PROMPT_ACTIVACION_BIONIC.md) con el prompt de 1 clic.
+- Se creó la guía `PROMPT_ACTIVACION_BIONIC.md` con el prompt de 1 clic.
 - Todo el conocimiento queda respaldado en el repositorio GitHub oficial.
 
 ---

@@ -47,10 +47,38 @@ def clasificar_tipo_documento(nombre_archivo):
     return "teoria"
 
 class VectorizadorLocal:
-    def __init__(self, dim=256):
+    def __init__(self, dim=768, url_lmstudio="http://127.0.0.1:1234/v1/embeddings", modelo_lmstudio="nomic-ai/text-embedding-nomic-embed-text-v1.5"):
         self.dim = dim
+        self.url_lmstudio = url_lmstudio
+        self.modelo_lmstudio = modelo_lmstudio
+
+    def vectorizar_lmstudio(self, texto):
+        """Genera embeddings semánticos profundos mediante la API de LM Studio."""
+        import urllib.request
+        try:
+            payload = json.dumps({
+                "model": self.modelo_lmstudio,
+                "input": texto
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                self.url_lmstudio,
+                data=payload,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=5) as res:
+                if res.status == 200:
+                    data = json.loads(res.read().decode('utf-8'))
+                    return data["data"][0]["embedding"]
+        except Exception:
+            return None
 
     def vectorizar(self, texto):
+        # 1. Intentar con LM Studio (calidad máxima)
+        vec_neuronal = self.vectorizar_lmstudio(texto)
+        if vec_neuronal and len(vec_neuronal) > 0:
+            return vec_neuronal
+
+        # 2. Fallback local matemático si LM Studio no está disponible
         tokens = re.findall(r'\b[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9_]{2,}\b', texto.lower())
         if not tokens:
             return [0.0] * self.dim
@@ -77,7 +105,7 @@ class IndexadorAcademico:
         self.gestor = AutoGestor(raiz_proyecto)
         self.raiz = self.gestor.raiz
         self.carpeta_storage = self.gestor.carpeta_storage
-        self.vectorizador = VectorizadorLocal(dim=256)
+        self.vectorizador = VectorizadorLocal(dim=768)
 
     def extraer_pdf(self, ruta_pdf):
         paginas_extraidas = []
@@ -140,6 +168,31 @@ class IndexadorAcademico:
             print(f"⚠️ Error al leer DOCX {ruta_docx.name}: {e}", file=sys.stderr)
         return fragmentos
 
+    def extraer_html(self, ruta_html):
+        fragmentos = []
+        try:
+            with open(ruta_html, "r", encoding="utf-8", errors="ignore") as f:
+                html_content = f.read()
+            # Eliminar scripts y estilos
+            limpio = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+            limpio = re.sub(r'<style[^>]*>.*?</style>', '', limpio, flags=re.DOTALL | re.IGNORECASE)
+            # Reemplazar saltos de bloque
+            limpio = re.sub(r'<(?:h[1-6]|p|div|tr|li)[^>]*>', '\n', limpio, flags=re.IGNORECASE)
+            # Eliminar etiquetas restantes
+            limpio = re.sub(r'<[^>]+>', ' ', limpio)
+            # Normalizar entidades
+            limpio = limpio.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+            texto_final = limpiar_texto(limpio)
+            if texto_final and len(texto_final) > 30:
+                fragmentos.append({
+                    "pagina": 1,
+                    "total_paginas": 1,
+                    "texto": texto_final
+                })
+        except Exception as e:
+            print(f"⚠️ Error al leer HTML {ruta_html.name}: {e}", file=sys.stderr)
+        return fragmentos
+
     def fragmentar_texto(self, texto, max_chars=800):
         oraciones = re.split(r'(?<=[.?!])\s+', texto)
         chunks = []
@@ -188,7 +241,12 @@ class IndexadorAcademico:
             if ruta_materia.is_file():
                 documentos = [ruta_materia]
             else:
-                documentos = list(ruta_materia.rglob("*.pdf")) + list(ruta_materia.rglob("*.docx"))
+                documentos = (
+                    list(ruta_materia.rglob("*.pdf")) + 
+                    list(ruta_materia.rglob("*.docx")) + 
+                    list(ruta_materia.rglob("*.html")) + 
+                    list(ruta_materia.rglob("*.txt"))
+                )
             nodos_materia = []
             temas_detectados = set()
 
@@ -204,8 +262,17 @@ class IndexadorAcademico:
 
                 if doc.suffix.lower() == ".pdf":
                     paginas = self.extraer_pdf(doc)
-                else:
+                elif doc.suffix.lower() == ".docx":
                     paginas = self.extraer_docx(doc)
+                elif doc.suffix.lower() == ".html":
+                    paginas = self.extraer_html(doc)
+                else:
+                    try:
+                        with open(doc, "r", encoding="utf-8", errors="ignore") as f:
+                            t = limpiar_texto(f.read())
+                        paginas = [{"pagina": 1, "total_paginas": 1, "texto": t}] if t else []
+                    except Exception:
+                        paginas = []
 
                 for p in paginas:
                     num_pag = p["pagina"]

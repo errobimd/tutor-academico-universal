@@ -35,7 +35,7 @@ class ConsultorRAG:
             self.carpeta_storage = Path(carpeta_storage).resolve()
         else:
             self.carpeta_storage = Path(__file__).resolve().parent / "storage_index"
-        self.vectorizador = VectorizadorLocal(dim=256)
+        self.vectorizador = VectorizadorLocal(dim=768)
         self.indice_en_memoria = None
         self.materia_cargada = None
 
