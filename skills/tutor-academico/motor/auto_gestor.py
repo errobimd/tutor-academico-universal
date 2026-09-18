@@ -383,7 +383,12 @@ class AutoGestor:
 
         # 4. Procesar cada carpeta
         for carp in carpetas_a_escanear:
-            docs = list(carp.rglob("*.pdf")) + list(carp.rglob("*.docx"))
+            docs = (
+                list(carp.rglob("*.pdf")) + 
+                list(carp.rglob("*.docx")) + 
+                list(carp.rglob("*.html")) + 
+                list(carp.rglob("*.txt"))
+            )
             if docs:
                 codigo = generar_codigo_materia(carp.name)
                 nombre_base = limpiar_nombre_materia(carp.name)
@@ -414,13 +419,14 @@ class AutoGestor:
                 }
                 total_docs += len(docs)
 
-        # 5. Procesar ARCHIVOS SUELTOS (PDFs o DOCXs sin carpeta)
+        # 5. Procesar ARCHIVOS SUELTOS (PDFs, DOCXs, HTMLs o TXTs sin carpeta)
         rutas_sueltas = []
-        if self.carpeta_evaluacion.exists():
-            rutas_sueltas.extend([f for f in self.carpeta_evaluacion.glob("*.pdf")] + [f for f in self.carpeta_evaluacion.glob("*.docx")])
-        if carpeta_intereses.exists():
-            rutas_sueltas.extend([f for f in carpeta_intereses.glob("*.pdf")] + [f for f in carpeta_intereses.glob("*.docx")])
-        rutas_sueltas.extend([f for f in self.raiz.glob("*.pdf")] + [f for f in self.raiz.glob("*.docx")])
+        for ext in ("*.pdf", "*.docx", "*.html", "*.txt"):
+            if self.carpeta_evaluacion.exists():
+                rutas_sueltas.extend(self.carpeta_evaluacion.glob(ext))
+            if carpeta_intereses.exists():
+                rutas_sueltas.extend(carpeta_intereses.glob(ext))
+            rutas_sueltas.extend(self.raiz.glob(ext))
 
         rutas_sueltas_unicas = []
         vistas = set()
