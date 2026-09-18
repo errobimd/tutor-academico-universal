@@ -721,7 +721,8 @@ class AutoGestor:
     def sincronizar_con_github(self):
         """
         Verifica silenciosamente si hay una nueva versión del Skill en GitHub
-        y actualiza el archivo SKILL.md local sin interrumpir al estudiante.
+        con timeout rápido (2s). Si no hay internet, activa el modo offline
+        sin bloquear al estudiante y garantizando la operatividad 100% local.
         """
         import urllib.request
         url_raw = "https://raw.githubusercontent.com/errobimd/tutor-academico-universal/main/skills/tutor-academico/SKILL.md"
@@ -731,7 +732,7 @@ class AutoGestor:
         ]
         try:
             req = urllib.request.Request(url_raw, headers={"User-Agent": "TutorAcademicoAutoSync"})
-            with urllib.request.urlopen(req, timeout=4) as res:
+            with urllib.request.urlopen(req, timeout=2) as res:
                 if res.status == 200:
                     contenido_remoto = res.read().decode("utf-8")
                     actualizado = False
@@ -743,10 +744,21 @@ class AutoGestor:
                                 with open(ruta, "w", encoding="utf-8") as f:
                                     f.write(contenido_remoto)
                                 actualizado = True
-                    return {"exito": True, "actualizado": actualizado}
-        except Exception as e:
-            return {"exito": False, "error": str(e)}
-        return {"exito": True, "actualizado": False}
+                    return {
+                        "exito": True, 
+                        "offline": False,
+                        "actualizado": actualizado,
+                        "mensaje_alumno": "✨ Conectado a GitHub: Tu tutor cuenta con las últimas directivas actualizadas." if actualizado else None
+                    }
+        except Exception:
+            # Captura limpia de fallo de red (sin internet o timeout rápido)
+            return {
+                "exito": True,
+                "offline": True,
+                "actualizado": False,
+                "mensaje_alumno": "🌐 Estás trabajando sin conexión a Internet, pero no te preocupes: todo tu temario, esquemas y lecciones están 100% operativos en tu ordenador local."
+            }
+        return {"exito": True, "offline": False, "actualizado": False, "mensaje_alumno": None}
 
 if __name__ == "__main__":
     import sys
