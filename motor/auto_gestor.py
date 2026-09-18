@@ -26,6 +26,28 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+# Importar clasificador pedagógico con fallback y bandera pendiente
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from clasificador_pedagogico import auditar_perfil_documento, comprobar_llm_disponible
+except ImportError:
+    try:
+        from motor.clasificador_pedagogico import auditar_perfil_documento, comprobar_llm_disponible
+    except ImportError:
+        def auditar_perfil_documento(p):
+            return {
+                "perfil": "ACADEMICO_GENERAL",
+                "admite_katex": False,
+                "admite_mermaid_teoria": True,
+                "admite_mermaid_ejercicios": False,
+                "herramienta_ejercicios": "TEXTO_Y_ESQUEMAS",
+                "prohibicion_especifica": "Priorizar claridad pedagógica.",
+                "estado_clasificacion": "PROVISIONAL_HEURISTICO",
+                "auditoria_llm_pendiente": True
+            }
+        def comprobar_llm_disponible():
+            return False
+
 def quitar_tildes(texto):
     """Elimina acentos y tildes para normalización limpia."""
     return ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
@@ -409,12 +431,16 @@ class AutoGestor:
                 if codigo in materias_detectadas and materias_detectadas[codigo]["ruta"] != str(carp):
                     codigo = f"{codigo}_{len(materias_detectadas)}"
 
+                perfil_materia = auditar_perfil_documento(docs[0]) if docs else {}
+                es_personal_final = es_personal or (perfil_materia.get("ambito") == "INTERES_PERSONAL")
+
                 materias_detectadas[codigo] = {
                     "nombre": nombre_descriptivo,
                     "ruta": str(carp),
                     "total_docs": len(docs),
                     "es_archivo_suelto": False,
-                    "es_interes_personal": es_personal,
+                    "es_interes_personal": es_personal_final,
+                    "perfil_didactico": perfil_materia,
                     "documentos": [str(d) for d in docs]
                 }
                 total_docs += len(docs)
@@ -446,6 +472,9 @@ class AutoGestor:
             if cod_suelto in materias_detectadas:
                 cod_suelto = f"{cod_suelto}_{len(materias_detectadas)}"
 
+            perfil_suelto = auditar_perfil_documento(doc_suelto)
+            es_pers_suelto = (analisis.get("ambito") == "INTERES_PERSONAL") or (perfil_suelto.get("ambito") == "INTERES_PERSONAL")
+
             materias_detectadas[cod_suelto] = {
                 "nombre": f"[Documento Suelto] {analisis['tematica']} ({doc_suelto.name})",
                 "titulo_portada": analisis['tematica'],
@@ -453,8 +482,9 @@ class AutoGestor:
                 "ruta": str(doc_suelto),
                 "total_docs": 1,
                 "es_archivo_suelto": True,
-                "es_interes_personal": (analisis.get("ambito") == "INTERES_PERSONAL"),
+                "es_interes_personal": es_pers_suelto,
                 "ambito": analisis.get("ambito", "ACADEMICO"),
+                "perfil_didactico": perfil_suelto,
                 "sugerencia_carpeta": analisis['sugerencia_carpeta'],
                 "sugerencia_carpeta_nombre": analisis.get('sugerencia_carpeta_nombre', analisis['sugerencia_carpeta']),
                 "afinidad_encontrada": analisis['afinidad_encontrada'],
@@ -629,6 +659,16 @@ class AutoGestor:
                         lineas.append(f"  * `{nombre_archivo}`")
                     if info["total_docs"] > 5:
                         lineas.append(f"  * *(y {info['total_docs'] - 5} documentos adicionales)*")
+                    
+                    p_did = info.get("perfil_didactico", {})
+                    if p_did:
+                        estado_aud = p_did.get('estado_clasificacion', 'CONFIRMADO')
+                        lineas.append(f"- **🎯 Perfil Didáctico:** `{p_did.get('perfil', 'GENERAL')}` [{estado_aud}]")
+                        lineas.append(f"  * **Herramienta en Ejercicios:** {p_did.get('herramienta_ejercicios', 'Estándar')}")
+                        lineas.append(f"  * **Regla Estricta:** {p_did.get('prohibicion_especifica', 'Ninguna')}")
+                        if p_did.get("auditoria_llm_pendiente"):
+                            lineas.append("  * ⏳ *(Bandera activa: Clasificación heurística provisional. Pendiente de refinamiento con LLM).*")
+                    
                     lineas.append("")
                     contador_global += 1
 
@@ -643,6 +683,16 @@ class AutoGestor:
                         lineas.append(f"  * `{nombre_archivo}`")
                     if info["total_docs"] > 5:
                         lineas.append(f"  * *(y {info['total_docs'] - 5} documentos adicionales)*")
+                    
+                    p_did = info.get("perfil_didactico", {})
+                    if p_did:
+                        estado_aud = p_did.get('estado_clasificacion', 'CONFIRMADO')
+                        lineas.append(f"- **🎯 Perfil Didáctico:** `{p_did.get('perfil', 'GENERAL')}` [{estado_aud}]")
+                        lineas.append(f"  * **Herramienta en Ejercicios:** {p_did.get('herramienta_ejercicios', 'Estándar')}")
+                        lineas.append(f"  * **Regla Estricta:** {p_did.get('prohibicion_especifica', 'Ninguna')}")
+                        if p_did.get("auditoria_llm_pendiente"):
+                            lineas.append("  * ⏳ *(Bandera activa: Clasificación heurística provisional. Pendiente de refinamiento con LLM).*")
+                    
                     lineas.append("")
                     contador_global += 1
 
@@ -730,6 +780,7 @@ class AutoGestor:
         revision = self.verificar_proyecto()
         if revision["estado"] == "ARCHIVOS_DETECTADOS":
             for codigo, info in revision["materias"].items():
+                p_did = info.get("perfil_didactico", {})
                 for doc_str in info["documentos"]:
                     doc = Path(doc_str)
                     info_hash = calcular_hash_archivo(doc)
@@ -738,6 +789,9 @@ class AutoGestor:
                             rel_path = str(doc.relative_to(self.raiz))
                         except Exception:
                             rel_path = str(doc)
+                        info_hash["perfil_didactico"] = p_did
+                        info_hash["auditoria_llm_pendiente"] = p_did.get("auditoria_llm_pendiente", False)
+                        info_hash["estado_clasificacion"] = p_did.get("estado_clasificacion", "CONFIRMADO")
                         manifest[rel_path] = info_hash
 
         with open(self.ruta_manifest, "w", encoding="utf-8") as f:

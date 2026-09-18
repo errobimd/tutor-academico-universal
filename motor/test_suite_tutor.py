@@ -149,6 +149,27 @@ def ejecutar_bateria_pruebas():
     print(f"  Detalle: {detalles_p5}")
 
     # -------------------------------------------------------------
+    # PRUEBA 6: Clasificación Pedagógica y Bandera de Auditoría Pendiente
+    # -------------------------------------------------------------
+    pasa_p6 = False
+    detalles_p6 = ""
+    if ruta_catalogo.exists():
+        contenido_cat = open(ruta_catalogo, "r", encoding="utf-8").read()
+        tiene_perfil = "Perfil Didáctico:" in contenido_cat
+        tiene_herramienta = "Herramienta en Ejercicios:" in contenido_cat
+        tiene_bandera = "Bandera activa" in contenido_cat or "CONFIRMADO_LLM" in contenido_cat
+        pasa_p6 = (tiene_perfil and tiene_herramienta and tiene_bandera)
+        estado_p6 = "✅ PASÓ" if pasa_p6 else "❌ FALLÓ"
+        detalles_p6 = "Matriz de perfiles didácticos, directivas de herramientas y flags activos en catálogo."
+    else:
+        estado_p6 = "❌ FALLÓ"
+        detalles_p6 = "No se pudo leer TEMARIO_ACTIVO.md."
+
+    resultados.append(("6. Matriz de Perfiles Didácticos y Flags de Auditoría", estado_p6, detalles_p6))
+    print(f"\n[Prueba 6] {estado_p6}: Perfiles Pedagógicos y Banderas")
+    print(f"  Detalle: {detalles_p6}")
+
+    # -------------------------------------------------------------
     # RESUMEN FINAL
     # -------------------------------------------------------------
     total = len(resultados)
