@@ -37,12 +37,20 @@ from consultor_rag import ConsultorRAG
 class SimuladorTutor:
     def __init__(self):
         self.laboratorio_dir = Path(__file__).resolve().parent
-        if (Path.cwd() / "1 Evaluación").exists():
-            self.raiz_proyecto = Path.cwd().resolve()
-        elif Path("d:/Biblioteca_Temas/1 Evaluación").exists():
-            self.raiz_proyecto = Path("d:/Biblioteca_Temas").resolve()
+        cwd = Path.cwd().resolve()
+        if (cwd / "1 Evaluación").exists() or (cwd / "TEMARIO_ACTIVO.md").exists() or (cwd / ".agents").exists():
+            self.raiz_proyecto = cwd
         else:
-            self.raiz_proyecto = self.laboratorio_dir.parent.parent
+            candidato = Path(__file__).resolve().parent
+            raiz_encontrada = None
+            for _ in range(5):
+                if (candidato / "1 Evaluación").exists() or (candidato / "TEMARIO_ACTIVO.md").exists() or (candidato / ".git").exists():
+                    raiz_encontrada = candidato
+                    break
+                if candidato.parent == candidato:
+                    break
+                candidato = candidato.parent
+            self.raiz_proyecto = raiz_encontrada if raiz_encontrada else self.laboratorio_dir.parent.parent
         self.resultados = []
 
     def registrar_resultado(self, nombre_prueba, estado, detalle):

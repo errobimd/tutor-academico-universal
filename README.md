@@ -10,16 +10,35 @@
 
 ---
 
-## ⚡ INSTALACIÓN (ELIGE TU MÉTODO FAVORITO)
+## ⚡ PUESTA EN MARCHA EN 1 CLIC (DESDE CERO)
 
-### 🥇 Método 1: En 1 Clic (Recomendado e Infalible)
-Abre **PowerShell** en tu ordenador (pulsa la tecla Windows, escribe `powershell` y pulsa Enter) y pega esta línea:
+Si acabas de clonar o descargar este repositorio en tu ordenador:
+
+### 🪟 En Windows:
+1. Haz **doble clic** en **`iniciar_entorno.bat`**.
+2. El script detectará tu Python, creará automáticamente el entorno virtual aislado (`.venv`), instalará las librerías necesarias (`requirements.txt`) y ejecutará la auditoría de salud.
+3. Abre **Bionic Studio** y escribe `@tutor-academico` (o pega el contenido de `PROMPT_ACTIVACION_BIONIC.md`).
+
+### 🐧 En Linux / macOS:
+1. Abre tu terminal en la carpeta del proyecto y ejecuta:
+   ```bash
+   chmod +x iniciar_entorno.sh
+   ./iniciar_entorno.sh
+   ```
+2. El entorno se creará e instalará automáticamente.
+
+---
+
+## ⚡ INSTALACIÓN DE LA HABILIDAD (SKILL)
+
+### 🥇 Método 1: Clonado Directo a tu Carpeta de Habilidades
+Abre **PowerShell** en tu ordenador y pega esta línea:
 
 ```powershell
 git clone https://github.com/errobimd/tutor-academico-universal.git "$HOME\.agents\skills\tutor-academico"
 ```
 
-> **¡Listo!** Abre **Bionic Studio**, crea un nuevo chat y ya tendrás disponible **`@tutor-academico`** en tu menú de habilidades. Sin intermediarios ni fallos de herramientas.
+> **¡Listo!** Abre **Bionic Studio**, crea un nuevo chat y ya tendrás disponible **`@tutor-academico`** en tu menú de habilidades.
 
 ---
 
