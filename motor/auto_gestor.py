@@ -383,7 +383,12 @@ class AutoGestor:
 
         # 4. Procesar cada carpeta
         for carp in carpetas_a_escanear:
-            docs = list(carp.rglob("*.pdf")) + list(carp.rglob("*.docx"))
+            docs = (
+                list(carp.rglob("*.pdf")) + 
+                list(carp.rglob("*.docx")) + 
+                list(carp.rglob("*.html")) + 
+                list(carp.rglob("*.txt"))
+            )
             if docs:
                 codigo = generar_codigo_materia(carp.name)
                 nombre_base = limpiar_nombre_materia(carp.name)
@@ -414,13 +419,14 @@ class AutoGestor:
                 }
                 total_docs += len(docs)
 
-        # 5. Procesar ARCHIVOS SUELTOS (PDFs o DOCXs sin carpeta)
+        # 5. Procesar ARCHIVOS SUELTOS (PDFs, DOCXs, HTMLs o TXTs sin carpeta)
         rutas_sueltas = []
-        if self.carpeta_evaluacion.exists():
-            rutas_sueltas.extend([f for f in self.carpeta_evaluacion.glob("*.pdf")] + [f for f in self.carpeta_evaluacion.glob("*.docx")])
-        if carpeta_intereses.exists():
-            rutas_sueltas.extend([f for f in carpeta_intereses.glob("*.pdf")] + [f for f in carpeta_intereses.glob("*.docx")])
-        rutas_sueltas.extend([f for f in self.raiz.glob("*.pdf")] + [f for f in self.raiz.glob("*.docx")])
+        for ext in ("*.pdf", "*.docx", "*.html", "*.txt"):
+            if self.carpeta_evaluacion.exists():
+                rutas_sueltas.extend(self.carpeta_evaluacion.glob(ext))
+            if carpeta_intereses.exists():
+                rutas_sueltas.extend(carpeta_intereses.glob(ext))
+            rutas_sueltas.extend(self.raiz.glob(ext))
 
         rutas_sueltas_unicas = []
         vistas = set()
@@ -496,9 +502,13 @@ class AutoGestor:
 
         es_primera_vez = len(manifest_previo) == 0
         archivos_nuevos_o_modificados = []
+        modificados_oficiales = []
+        nuevos_oficiales = []
+        sueltos_detectados = []
         novedades_titulos = []
 
         for codigo, info in revision["materias"].items():
+            es_suelto = info.get("es_archivo_suelto", False)
             for ruta_doc_str in info["documentos"]:
                 doc = Path(ruta_doc_str)
                 info_hash = calcular_hash_archivo(doc)
@@ -513,21 +523,55 @@ class AutoGestor:
                 if not prev or prev.get("md5") != info_hash["md5"]:
                     archivos_nuevos_o_modificados.append(doc)
                     titulo = extraer_titulo_portada(doc)
-                    novedades_titulos.append(f"{info['nombre']} -> {doc.name} ({titulo})")
+                    
+                    if prev is not None:
+                        # Archivo ya conocido pero con contenido modificado
+                        if not es_suelto:
+                            modificados_oficiales.append((doc.name, info['nombre']))
+                            novedades_titulos.append(f"[Modificado] {info['nombre']} -> {doc.name}")
+                        else:
+                            sueltos_detectados.append(doc.name)
+                    else:
+                        # Archivo completamente nuevo
+                        if not es_suelto:
+                            nuevos_oficiales.append((doc.name, info['nombre']))
+                            novedades_titulos.append(f"[Nuevo] {info['nombre']} -> {doc.name} ({titulo})")
+                        else:
+                            sueltos_detectados.append(doc.name)
 
         necesita_indexar = len(archivos_nuevos_o_modificados) > 0
 
         mensaje_alumno = None
         if es_primera_vez and necesita_indexar:
-            mensaje_alumno = "Esta es la primera vez que usas el skill, tardará un poco más mientras preparo todo tu espacio de estudio..."
+            total_docs = len(archivos_nuevos_o_modificados)
+            segundos_est = max(10, int(total_docs * 0.6))
+            mensaje_alumno = (
+                f"¡Hola! Soy tu Tutor Académico 🎓.\n"
+                f"He detectado tu biblioteca con {total_docs} documentos y esquemas de estudio.\n"
+                f"Estoy analizando tus apuntes y estructurando las secciones clave. "
+                f"Me tomará aproximadamente {segundos_est} segundos.\n"
+                f"Tómate un café o un refresco ☕🥤 mientras preparo tu aula de estudio..."
+            )
         elif necesita_indexar:
-            lista_novedades = ", ".join([f"'{Path(p).name}'" for p in archivos_nuevos_o_modificados[:3]])
-            mensaje_alumno = f"📢 ¡He detectado nuevos documentos en tus carpetas: {lista_novedades}! Los he incorporado a tu temario de estudio."
+            mensajes_partes = []
+            if modificados_oficiales:
+                nombres_mods = ", ".join([f"'{m[0]}' ({m[1]})" for m in modificados_oficiales[:3]])
+                mensajes_partes.append(f"📝 He detectado modificaciones en {nombres_mods}. Se han reindexado para actualizar el contexto de estudio.")
+            if nuevos_oficiales:
+                nombres_nuevos = ", ".join([f"'{n[0]}' ({n[1]})" for n in nuevos_oficiales[:3]])
+                mensajes_partes.append(f"📢 ¡Nuevos documentos añadidos a tus asignaturas: {nombres_nuevos}! Incorporados al temario.")
+            if sueltos_detectados:
+                nombres_s = ", ".join([f"'{s}'" for s in sueltos_detectados[:2]])
+                mensajes_partes.append(f"📁 Se han encontrado archivos sueltos ({nombres_s}) pendientes de organizar.")
+            mensaje_alumno = " ".join(mensajes_partes)
 
         return {
             "necesita_indexar": necesita_indexar,
             "es_primera_vez": es_primera_vez,
             "archivos_nuevos": [str(p) for p in archivos_nuevos_o_modificados],
+            "modificados_oficiales": modificados_oficiales,
+            "nuevos_oficiales": nuevos_oficiales,
+            "sueltos_detectados": sueltos_detectados,
             "novedades_titulos": novedades_titulos,
             "materias": revision["materias"],
             "mensaje_alumno": mensaje_alumno
@@ -702,6 +746,48 @@ class AutoGestor:
         # Generar catálogo Markdown (en raíz y en 1 Evaluación)
         self.generar_catalogo_markdown()
         return manifest
+
+    def sincronizar_con_github(self):
+        """
+        Verifica silenciosamente si hay una nueva versión del Skill en GitHub
+        con timeout rápido (2s). Si no hay internet, activa el modo offline
+        sin bloquear al estudiante y garantizando la operatividad 100% local.
+        """
+        import urllib.request
+        url_raw = "https://raw.githubusercontent.com/errobimd/tutor-academico-universal/main/skills/tutor-academico/SKILL.md"
+        rutas_locales = [
+            self.raiz / ".agents" / "skills" / "tutor-academico" / "SKILL.md",
+            self.raiz / "1 Evaluación" / ".agents" / "skills" / "tutor-academico" / "SKILL.md"
+        ]
+        try:
+            req = urllib.request.Request(url_raw, headers={"User-Agent": "TutorAcademicoAutoSync"})
+            with urllib.request.urlopen(req, timeout=2) as res:
+                if res.status == 200:
+                    contenido_remoto = res.read().decode("utf-8")
+                    actualizado = False
+                    for ruta in rutas_locales:
+                        if ruta.exists():
+                            with open(ruta, "r", encoding="utf-8") as f:
+                                contenido_local = f.read()
+                            if contenido_local.strip() != contenido_remoto.strip():
+                                with open(ruta, "w", encoding="utf-8") as f:
+                                    f.write(contenido_remoto)
+                                actualizado = True
+                    return {
+                        "exito": True, 
+                        "offline": False,
+                        "actualizado": actualizado,
+                        "mensaje_alumno": "✨ Conectado a GitHub: Tu tutor cuenta con las últimas directivas actualizadas." if actualizado else None
+                    }
+        except Exception:
+            # Captura limpia de fallo de red (sin internet o timeout rápido)
+            return {
+                "exito": True,
+                "offline": True,
+                "actualizado": False,
+                "mensaje_alumno": "🌐 Estás trabajando sin conexión a Internet, pero no te preocupes: todo tu temario, esquemas y lecciones están 100% operativos en tu ordenador local."
+            }
+        return {"exito": True, "offline": False, "actualizado": False, "mensaje_alumno": None}
 
 if __name__ == "__main__":
     import sys

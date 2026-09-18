@@ -29,7 +29,7 @@ def obtener_instantanea_archivos(raiz):
     Obtiene un diccionario con la firma de cada archivo relevante:
     { ruta_relativa: (tamano, fecha_modificacion) }
     """
-    extensiones = ('.pdf', '.docx')
+    extensiones = ('.pdf', '.docx', '.html', '.txt')
     carpetas_ignoradas = {
         ".git", ".venv", "storage_index", "__pycache__", ".gemini", ".agents"
     }
