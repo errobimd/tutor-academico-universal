@@ -398,16 +398,22 @@ class AutoGestor:
         # 1. Explorar subcarpetas en '1 Evaluación'
         carpetas_a_escanear = []
         if self.carpeta_evaluacion.exists() and self.carpeta_evaluacion.is_dir():
-            carpetas_a_escanear.extend([d for d in self.carpeta_evaluacion.iterdir() if d.is_dir()])
+            carpetas_a_escanear.extend([
+                d for d in self.carpeta_evaluacion.iterdir() 
+                if d.is_dir() and not d.name.startswith('.') and d.name not in carpetas_ignoradas
+            ])
 
         # 2. Explorar subcarpetas en 'Intereses Personales' (si existe)
         carpeta_intereses = self.raiz / "Intereses Personales"
         if carpeta_intereses.exists() and carpeta_intereses.is_dir():
-            carpetas_a_escanear.extend([d for d in carpeta_intereses.iterdir() if d.is_dir()])
+            carpetas_a_escanear.extend([
+                d for d in carpeta_intereses.iterdir() 
+                if d.is_dir() and not d.name.startswith('.') and d.name not in carpetas_ignoradas
+            ])
 
         # 3. Explorar subcarpetas en la raíz del proyecto
         for item in self.raiz.iterdir():
-            if item.is_dir() and item.name not in carpetas_ignoradas and item.name not in ("1 Evaluación", "Intereses Personales"):
+            if item.is_dir() and not item.name.startswith('.') and item.name not in carpetas_ignoradas and item.name not in ("1 Evaluación", "Intereses Personales"):
                 carpetas_a_escanear.append(item)
 
         # 4. Procesar cada carpeta
@@ -418,6 +424,8 @@ class AutoGestor:
                 list(carp.rglob("*.html")) + 
                 list(carp.rglob("*.txt"))
             )
+            # Descartar cualquier archivo que esté dentro de carpetas ocultas (.agents, .venv, etc.)
+            docs = [f for f in docs if not any(part.startswith('.') for part in f.parts)]
             if docs:
                 codigo = generar_codigo_materia(carp.name)
                 nombre_base = limpiar_nombre_materia(carp.name)
@@ -469,9 +477,20 @@ class AutoGestor:
                 vistas.add(res)
                 rutas_sueltas_unicas.append(r)
 
+        ARCHIVOS_SISTEMA_IGNORADOS = {
+            "requirements.txt", "system_prompt_tutor.txt", "temario_activo.md",
+            "ejemplo_operaciones_latex.html", "ejemplo_operaciones_latex.md", "verificar_entorno.py"
+        }
+
         for doc_suelto in rutas_sueltas_unicas:
-            # Ignorar archivos en carpetas de sistema o temporales
-            if doc_suelto.name.startswith("~$") or "temp" in doc_suelto.name.lower():
+            # Ignorar archivos en carpetas de sistema, temporales u ocultos
+            if (
+                doc_suelto.name.startswith("~$") or 
+                doc_suelto.name.startswith(".") or 
+                "temp" in doc_suelto.name.lower() or 
+                doc_suelto.name.lower() in ARCHIVOS_SISTEMA_IGNORADOS or
+                any(part.startswith('.') for part in doc_suelto.parts)
+            ):
                 continue
             
             analisis = analizar_tematica_y_sugerir_carpeta(doc_suelto, materias_detectadas)

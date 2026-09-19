@@ -247,6 +247,11 @@ class IndexadorAcademico:
                     list(ruta_materia.rglob("*.html")) + 
                     list(ruta_materia.rglob("*.txt"))
                 )
+                documentos = [
+                    d for d in documentos 
+                    if not any(part.startswith('.') for part in d.parts)
+                    and d.name.lower() not in {"requirements.txt", "system_prompt_tutor.txt", "temario_activo.md"}
+                ]
             nodos_materia = []
             temas_detectados = set()
 
