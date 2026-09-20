@@ -81,6 +81,9 @@ def extraer_titulo_portada(ruta_doc):
             doc = docx.Document(str(ruta))
             parrafos = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
             texto_inicio = "\n".join(parrafos[:8])
+        elif ruta.suffix.lower() in (".md", ".txt", ".html"):
+            with open(ruta, "r", encoding="utf-8", errors="ignore") as f:
+                texto_inicio = f.read(2000)
     except Exception:
         pass
 
@@ -416,16 +419,28 @@ class AutoGestor:
             if item.is_dir() and not item.name.startswith('.') and item.name not in carpetas_ignoradas and item.name not in ("1 Evaluación", "Intereses Personales"):
                 carpetas_a_escanear.append(item)
 
+        ARCHIVOS_SISTEMA_IGNORADOS = {
+            "requirements.txt", "system_prompt_tutor.txt", "temario_activo.md",
+            "ejemplo_operaciones_latex.html", "ejemplo_operaciones_latex.md", "verificar_entorno.py",
+            "readme.md", "skill.md", "instrucciones_tutor_bionic.md", "mapa_de_scripts_y_herramientas.md",
+            "memoria_sesion_y_conversacion.md", "prompt_activacion_bionic.md", "revision_general_y_estado_proyecto.md"
+        }
+
         # 4. Procesar cada carpeta
         for carp in carpetas_a_escanear:
             docs = (
                 list(carp.rglob("*.pdf")) + 
                 list(carp.rglob("*.docx")) + 
                 list(carp.rglob("*.html")) + 
-                list(carp.rglob("*.txt"))
+                list(carp.rglob("*.txt")) +
+                list(carp.rglob("*.md"))
             )
-            # Descartar cualquier archivo que esté dentro de carpetas ocultas (.agents, .venv, etc.)
-            docs = [f for f in docs if not any(part.startswith('.') for part in f.parts)]
+            # Descartar cualquier archivo que esté dentro de carpetas ocultas (.agents, .venv, etc.) o de sistema
+            docs = [
+                f for f in docs 
+                if not any(part.startswith('.') for part in f.parts) and
+                f.name.lower() not in ARCHIVOS_SISTEMA_IGNORADOS
+            ]
             if docs:
                 codigo = generar_codigo_materia(carp.name)
                 nombre_base = limpiar_nombre_materia(carp.name)
@@ -460,9 +475,9 @@ class AutoGestor:
                 }
                 total_docs += len(docs)
 
-        # 5. Procesar ARCHIVOS SUELTOS (PDFs, DOCXs, HTMLs o TXTs sin carpeta)
+        # 5. Procesar ARCHIVOS SUELTOS (PDFs, DOCXs, HTMLs, TXTs o MDs sin carpeta)
         rutas_sueltas = []
-        for ext in ("*.pdf", "*.docx", "*.html", "*.txt"):
+        for ext in ("*.pdf", "*.docx", "*.html", "*.txt", "*.md"):
             if self.carpeta_evaluacion.exists():
                 rutas_sueltas.extend(self.carpeta_evaluacion.glob(ext))
             if carpeta_intereses.exists():
@@ -476,11 +491,6 @@ class AutoGestor:
             if res not in vistas:
                 vistas.add(res)
                 rutas_sueltas_unicas.append(r)
-
-        ARCHIVOS_SISTEMA_IGNORADOS = {
-            "requirements.txt", "system_prompt_tutor.txt", "temario_activo.md",
-            "ejemplo_operaciones_latex.html", "ejemplo_operaciones_latex.md", "verificar_entorno.py"
-        }
 
         for doc_suelto in rutas_sueltas_unicas:
             # Ignorar archivos en carpetas de sistema, temporales u ocultos
