@@ -18,12 +18,27 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
-# Asegurar codificación utf-8
-try:
-    if sys.stdout.encoding.lower() != 'utf-8':
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-except Exception:
-    pass
+# Redirigir stdout y stderr a vigilante.log si se ejecuta con pythonw (sin consola)
+if sys.stdout is None or sys.stderr is None:
+    try:
+        carpeta_log = Path(__file__).resolve().parent.parent.parent
+        if (carpeta_log / ".agents").exists():
+            ruta_log = carpeta_log / ".agents" / "vigilante.log"
+        else:
+            ruta_log = carpeta_log / "vigilante.log"
+        f_log = open(ruta_log, "a", encoding="utf-8", buffering=1)
+        sys.stdout = f_log
+        sys.stderr = f_log
+    except Exception:
+        import io
+        sys.stdout = io.StringIO()
+        sys.stderr = sys.stdout
+else:
+    try:
+        if hasattr(sys.stdout, 'encoding') and sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from auto_gestor import AutoGestor
