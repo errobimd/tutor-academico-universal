@@ -213,5 +213,53 @@
     </div>
   </div>
 
+  <h2>6. Tablas de Ponderación Posicional (Conversión a Decimal en LaTeX)</h2>
+  <div class="card">
+    <p><strong>A. Binario a Decimal ($101010_2 \to 42_{10}$):</strong> Cada bit alineado con su potencia y aporte activo en cuadrícula cerrada:</p>
+    <div class="latex-box">
+      $$
+      \begin{array}{|l|c|c|c|c|c|c|}
+      \hline
+      \text{\textbf{Posición}} & 5 & 4 & 3 & 2 & 1 & 0 \\
+      \hline
+      \text{\textbf{Potencia}} & 2^5 & 2^4 & 2^3 & 2^2 & 2^1 & 2^0 \\
+      \hline
+      \text{\textbf{Peso}} & 32 & 16 & 8 & 4 & 2 & 1 \\
+      \hline
+      \text{\textbf{Bit Binario}} & \mathbf{1} & 0 & \mathbf{1} & 0 & \mathbf{1} & 0 \\
+      \hline
+      \text{\textbf{Aporte Activo}} & \mathbf{32} & 0 & \mathbf{8} & 0 & \mathbf{2} & 0 \\
+      \hline
+      \end{array}
+      $$
+      $$
+      \text{\textbf{Suma activa: }} 32 + 8 + 2 = \mathbf{42_{10}}
+      $$
+    </div>
+
+    <p style="margin-top: 25px;"><strong>B. Hexadecimal a Decimal ($2F_{16} \to 47_{10}$):</strong> Multiplicación de dígitos por potencias de 16:</p>
+    <div class="latex-box">
+      $$
+      \begin{array}{|l|c|c|}
+      \hline
+      \text{\textbf{Posición}} & 1 & 0 \\
+      \hline
+      \text{\textbf{Potencia}} & 16^1 & 16^0 \\
+      \hline
+      \text{\textbf{Peso}} & 16 & 1 \\
+      \hline
+      \text{\textbf{Dígito Hex}} & \mathbf{2} & \mathbf{F}\;(15) \\
+      \hline
+      \text{\textbf{Cálculo Parcial}} & 2 \times 16 = 32 & 15 \times 1 = 15 \\
+      \hline
+      \end{array}
+      $$
+      $$
+      \text{\textbf{Total Decimal: }} 32 + 15 = \mathbf{47_{10}}
+      $$
+    </div>
+  </div>
+
 </body>
 </html>
+

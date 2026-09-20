@@ -94,3 +94,67 @@ $$
 \end{array}
 $$
 ```
+
+---
+
+## 4. TABLAS DE PONDERACIÓN POSICIONAL (CONVERSIÓN A DECIMAL)
+
+Para conversiones numéricas de Binario, Octal o Hexadecimal a Decimal, se debe utilizar SIEMPRE una matriz encasillada `\begin{array}{|l|c|...}` con filas de Pesos, Dígitos y Aportes, aislada con saltos de línea propios.
+
+### A. Binario a Decimal (Ejemplo: $101010_2 \to 42_{10}$):
+```latex
+$$
+\begin{array}{|l|c|c|c|c|c|c|}
+\hline
+\text{\textbf{Posición}} & 5 & 4 & 3 & 2 & 1 & 0 \\
+\hline
+\text{\textbf{Potencia}} & 2^5 & 2^4 & 2^3 & 2^2 & 2^1 & 2^0 \\
+\hline
+\text{\textbf{Peso}} & 32 & 16 & 8 & 4 & 2 & 1 \\
+\hline
+\text{\textbf{Bit Binario}} & \mathbf{1} & 0 & \mathbf{1} & 0 & \mathbf{1} & 0 \\
+\hline
+\text{\textbf{Aporte Activo}} & \mathbf{32} & 0 & \mathbf{8} & 0 & \mathbf{2} & 0 \\
+\hline
+\end{array}
+$$
+
+$$
+\text{\textbf{Suma activa: }} 32 + 8 + 2 = \mathbf{42_{10}}
+$$
+```
+
+### B. Hexadecimal a Decimal (Ejemplo: $2F_{16} \to 47_{10}$):
+```latex
+$$
+\begin{array}{|l|c|c|}
+\hline
+\text{\textbf{Posición}} & 1 & 0 \\
+\hline
+\text{\textbf{Potencia}} & 16^1 & 16^0 \\
+\hline
+\text{\textbf{Peso}} & 16 & 1 \\
+\hline
+\text{\textbf{Dígito Hex}} & \mathbf{2} & \mathbf{F}\;(15) \\
+\hline
+\text{\textbf{Cálculo Parcial}} & 2 \times 16 = 32 & 15 \times 1 = 15 \\
+\hline
+\end{array}
+$$
+
+$$
+\text{\textbf{Total Decimal: }} 32 + 15 = \mathbf{47_{10}}
+$$
+```
+
+---
+
+## 5. REGLAS CRÍTICAS DE SINTAXIS KATEX (ANTI-ROTURA)
+
+1. ⛔ **PROHIBIDO concatenar bloques en la misma línea:**  
+   NUNCA escribas `$$ bloque 1 $$ $$ bloque 2 $$`. Cada bloque matemático `$$` debe comenzar y terminar en su propia línea independiente con saltos de línea.
+2. ⛔ **PROHIBIDO falsear tablas con `\quad |\quad`:**  
+   NUNCA intentes alinear datos en una sola línea usando barras verticales de texto. Usa siempre matrices estructuradas `\begin{array}` con delimitadores `&` y saltos de fila `\\ \hline`.
+3. ⛔ **PROHIBIDO bloques de código para fórmulas:**  
+   NUNCA uses triples comillas graves (\`\`\`latex, \`\`\`math o \`\`\`katex). Las fórmulas deben escribirse directamente en texto con `$$` para que Bionic las renderice de forma nativa.
+
