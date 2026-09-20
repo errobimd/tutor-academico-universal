@@ -18,6 +18,17 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
+class FlushedStream:
+    def __init__(self, stream):
+        self.stream = stream
+    def write(self, data):
+        self.stream.write(data)
+        self.stream.flush()
+    def flush(self):
+        self.stream.flush()
+    def __getattr__(self, attr):
+        return getattr(self.stream, attr)
+
 # Redirigir stdout y stderr a vigilante.log si se ejecuta con pythonw (sin consola)
 if sys.stdout is None or sys.stderr is None:
     try:
@@ -26,9 +37,9 @@ if sys.stdout is None or sys.stderr is None:
             ruta_log = carpeta_log / ".agents" / "vigilante.log"
         else:
             ruta_log = carpeta_log / "vigilante.log"
-        f_log = open(ruta_log, "a", encoding="utf-8", buffering=1)
-        sys.stdout = f_log
-        sys.stderr = f_log
+        f_log = open(ruta_log, "a", encoding="utf-8")
+        sys.stdout = FlushedStream(f_log)
+        sys.stderr = FlushedStream(f_log)
     except Exception:
         import io
         sys.stdout = io.StringIO()
