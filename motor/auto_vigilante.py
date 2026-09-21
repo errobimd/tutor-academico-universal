@@ -52,22 +52,31 @@ ARCHIVOS_SISTEMA_IGNORADOS = {
 }
 
 def resolver_raiz_proyecto():
-    """Determina la raíz de trabajo real (1 Evaluación o el espacio global)."""
-    if len(sys.argv) > 1 and Path(sys.argv[1]).exists():
+    """Determina la raíz de trabajo real (espacio de trabajo del estudiante)."""
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("--") and Path(sys.argv[1]).exists():
         return Path(sys.argv[1]).resolve()
     
-    cwd = Path.cwd().resolve()
-    if (cwd / "1 Evaluación").exists() or (cwd / ".agents").exists() or (cwd / "TEMARIO_ACTIVO.md").exists():
-        return cwd
-    
-    candidato = Path(__file__).resolve().parent
-    for _ in range(6):
-        if (candidato / "1 Evaluación").exists() or (candidato / ".agents").exists() or (candidato / "TEMARIO_ACTIVO.md").exists():
+    aqui = Path(__file__).resolve()
+    partes = aqui.parts
+    if ".agents" in partes:
+        idx = partes.index(".agents")
+        return Path(*partes[:idx])
+        
+    candidato = aqui.parent
+    while candidato.parent != candidato:
+        if (candidato / ".agents").exists() and candidato.name != ".agents":
             return candidato
-        if candidato.parent == candidato:
-            break
+        if (candidato / "Obsidian").exists() and candidato.name != "Obsidian":
+            return candidato
+        if (candidato / "1 Evaluación").exists() and candidato.name != "1 Evaluación":
+            return candidato
         candidato = candidato.parent
-    return cwd
+        
+    cwd = Path.cwd().resolve()
+    if (cwd / ".agents").exists() or (cwd / "Obsidian").exists() or (cwd / "1 Evaluación").exists() or (cwd / "TEMARIO_ACTIVO.md").exists():
+        return cwd
+        
+    return aqui.parent.parent.parent.parent
 
 def obtener_instantanea_archivos(raiz):
     """

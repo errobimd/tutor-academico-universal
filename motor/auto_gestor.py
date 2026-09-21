@@ -360,21 +360,38 @@ class AutoGestor:
     def __init__(self, raiz_proyecto=None):
         if raiz_proyecto:
             self.raiz = Path(raiz_proyecto).resolve()
+        elif len(sys.argv) > 1 and not sys.argv[1].startswith("--") and Path(sys.argv[1]).exists():
+            self.raiz = Path(sys.argv[1]).resolve()
         else:
-            cwd = Path.cwd().resolve()
-            if (cwd / "1 Evaluación").exists() or (cwd / "TEMARIO_ACTIVO.md").exists() or (cwd / ".agents").exists():
-                self.raiz = cwd
+            # Detección inteligente ascendente de la raíz del proyecto
+            aqui = Path(__file__).resolve()
+            partes = aqui.parts
+            if ".agents" in partes:
+                idx = partes.index(".agents")
+                self.raiz = Path(*partes[:idx])
             else:
-                candidato = Path(__file__).resolve().parent
+                candidato = aqui.parent
                 raiz_encontrada = None
-                for _ in range(5):
-                    if (candidato / "1 Evaluación").exists() or (candidato / "TEMARIO_ACTIVO.md").exists() or (candidato / ".git").exists():
+                while candidato.parent != candidato:
+                    if (candidato / ".agents").exists() and candidato.name != ".agents":
                         raiz_encontrada = candidato
                         break
-                    if candidato.parent == candidato:
+                    if (candidato / "Obsidian").exists() and candidato.name != "Obsidian":
+                        raiz_encontrada = candidato
+                        break
+                    if (candidato / "1 Evaluación").exists() and candidato.name != "1 Evaluación":
+                        raiz_encontrada = candidato
                         break
                     candidato = candidato.parent
-                self.raiz = raiz_encontrada if raiz_encontrada else Path(__file__).resolve().parent.parent.parent
+                
+                if raiz_encontrada:
+                    self.raiz = raiz_encontrada
+                else:
+                    cwd = Path.cwd().resolve()
+                    if (cwd / ".agents").exists() or (cwd / "Obsidian").exists() or (cwd / "1 Evaluación").exists() or (cwd / "TEMARIO_ACTIVO.md").exists():
+                        self.raiz = cwd
+                    else:
+                        self.raiz = aqui.parent.parent.parent.parent
             
         self.carpeta_evaluacion = self.raiz / "1 Evaluación"
         self.carpeta_storage = Path(__file__).resolve().parent / "storage_index"
@@ -417,7 +434,19 @@ class AutoGestor:
         # 3. Explorar subcarpetas en la raíz del proyecto
         for item in self.raiz.iterdir():
             if item.is_dir() and not item.name.startswith('.') and item.name not in carpetas_ignoradas and item.name not in ("1 Evaluación", "Intereses Personales"):
-                carpetas_a_escanear.append(item)
+                if "obsidian" in item.name.lower():
+                    # Si es bóveda o carpeta Obsidian, explorar sus subcarpetas organizadas
+                    subcarpetas_obs = [s for s in item.iterdir() if s.is_dir() and not s.name.startswith('.')]
+                    for sub_obs in subcarpetas_obs:
+                        sub_niveles = [sn for sn in sub_obs.iterdir() if sn.is_dir() and not sn.name.startswith('.')]
+                        if sub_niveles:
+                            carpetas_a_escanear.extend(sub_niveles)
+                        else:
+                            carpetas_a_escanear.append(sub_obs)
+                    if not subcarpetas_obs:
+                        carpetas_a_escanear.append(item)
+                else:
+                    carpetas_a_escanear.append(item)
 
         ARCHIVOS_SISTEMA_IGNORADOS = {
             "requirements.txt", "system_prompt_tutor.txt", "temario_activo.md",
@@ -737,8 +766,8 @@ class AutoGestor:
         try:
             with open(self.ruta_catalogo_md, "w", encoding="utf-8") as f:
                 f.write(contenido)
-            # También guardar en 1 Evaluación para visibilidad directa en Bionic Studio
-            if self.carpeta_evaluacion.exists():
+            # También guardar en 1 Evaluación para visibilidad directa en Bionic Studio si existe y no es la raíz
+            if self.carpeta_evaluacion.exists() and self.carpeta_evaluacion.resolve() != self.raiz.resolve():
                 with open(self.carpeta_evaluacion / "TEMARIO_ACTIVO.md", "w", encoding="utf-8") as f:
                     f.write(contenido)
         except Exception:
@@ -881,13 +910,22 @@ class AutoGestor:
 
 if __name__ == "__main__":
     import sys
-    gestor = AutoGestor()
-    if len(sys.argv) > 2 and sys.argv[1] == "--organizar":
-        archivo_arg = sys.argv[2]
-        carpeta_arg = sys.argv[3] if len(sys.argv) > 3 else "Nueva Carpeta"
+    # Extraer posible raíz pasada como argumento posicional (no flag)
+    raiz_arg = None
+    args_limpios = []
+    for a in sys.argv[1:]:
+        if not a.startswith("--") and Path(a).exists() and raiz_arg is None:
+            raiz_arg = a
+        else:
+            args_limpios.append(a)
+
+    gestor = AutoGestor(raiz_proyecto=raiz_arg)
+    if len(args_limpios) > 1 and args_limpios[0] == "--organizar":
+        archivo_arg = args_limpios[1]
+        carpeta_arg = args_limpios[2] if len(args_limpios) > 2 else "Nueva Carpeta"
         resultado = gestor.organizar_archivo(archivo_arg, carpeta_arg)
         print(json.dumps(resultado, indent=2, ensure_ascii=False))
-    elif len(sys.argv) > 1 and sys.argv[1] == "--actualizar":
+    elif len(args_limpios) > 0 and args_limpios[0] == "--actualizar":
         manifest = gestor.actualizar_manifest()
         print("Manifest y catálogo actualizados exitosamente.")
     else:
