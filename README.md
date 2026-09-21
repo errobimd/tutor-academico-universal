@@ -15,17 +15,9 @@
 Si acabas de clonar o descargar este repositorio en tu ordenador:
 
 ### 🪟 En Windows:
-1. Haz **doble clic** en **`iniciar_entorno.bat`**.
-2. El script detectará tu Python, creará automáticamente el entorno virtual aislado (`.venv`), instalará las librerías necesarias (`requirements.txt`) y ejecutará la auditoría de salud.
-3. Abre **Bionic Studio** y escribe `@tutor-academico` (o pega el contenido de `PROMPT_ACTIVACION_BIONIC.md`).
-
-### 🐧 En Linux / macOS:
-1. Abre tu terminal en la carpeta del proyecto y ejecuta:
-   ```bash
-   chmod +x iniciar_entorno.sh
-   ./iniciar_entorno.sh
-   ```
-2. El entorno se creará e instalará automáticamente.
+1. Haz **doble clic** en **`instalar.bat`**.
+2. El script detectará tu Python, creará automáticamente el entorno virtual aislado (`.agents/.venv`), instalará las librerías necesarias (`requirements.txt`), activará el centinela en segundo plano y generará el catálogo `TEMARIO_ACTIVO.md` en la raíz de tu proyecto.
+3. Abre tu entorno (Antigravity / Bionic / LM Studio) y empieza a estudiar con tu tutor.
 
 ---
 
@@ -130,10 +122,4 @@ El tutor detecta automáticamente lo que necesitas y adopta uno de estos 4 roles
 
 ---
 
-## 🧪 BANCO DE PRUEBAS AUTOMATIZADO
-
-El motor incluye su propia suite de pruebas de estrés (`motor/simulador_tutor.py`) con 11 auditorías (100% PASS). Puedes comprobar su estado con:
-
-```bash
-python motor/simulador_tutor.py
-```
+*Tutor Académico Universal — Diseñado para máxima privacidad, rendimiento local y fidelidad documental curricular.*
