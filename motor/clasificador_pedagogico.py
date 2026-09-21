@@ -29,13 +29,20 @@ if sys.platform == "win32":
 LM_STUDIO_MODELS_URL = "http://127.0.0.1:1234/v1/models"
 LM_STUDIO_CHAT_URL = "http://127.0.0.1:1234/v1/chat/completions"
 
+# Disyuntor (Circuit Breaker): Si LM Studio falla una vez, no reintentar en el mismo ciclo
+_LLM_ACTIVO_CIRCUITO = None
+
 def comprobar_llm_disponible(timeout_seg=0.8):
     """Verifica si el servidor de LM Studio está activo y respondiendo."""
+    global _LLM_ACTIVO_CIRCUITO
+    if _LLM_ACTIVO_CIRCUITO is False:
+        return False
     try:
         req = urllib.request.Request(LM_STUDIO_MODELS_URL, headers={"User-Agent": "TutorAcademico/1.0"})
         with urllib.request.urlopen(req, timeout=timeout_seg) as resp:
             return resp.status == 200
     except Exception:
+        _LLM_ACTIVO_CIRCUITO = False
         return False
 
 def extraer_muestra_documento(ruta_doc, max_caracteres=2500):
@@ -195,7 +202,7 @@ def clasificar_con_llm(texto_muestra, nombre_archivo=""):
             data=data,
             headers={"Content-Type": "application/json", "User-Agent": "TutorAcademico/1.0"}
         )
-        with urllib.request.urlopen(req, timeout=15.0) as resp:
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
             res_raw = resp.read().decode("utf-8")
             res_json = json.loads(res_raw)
             contenido = res_json["choices"][0]["message"]["content"].strip()
@@ -208,7 +215,9 @@ def clasificar_con_llm(texto_muestra, nombre_archivo=""):
                 clasificacion["auditoria_llm_pendiente"] = False
                 return clasificacion
     except Exception as e:
-        print(f"    [!] Detalle intento LLM: {e}")
+        global _LLM_ACTIVO_CIRCUITO
+        _LLM_ACTIVO_CIRCUITO = False
+        print(f"    [!] LM Studio no disponible ({e}). Activando fallback heurístico seguro e inmediato.", flush=True)
         pass
 
     # Si falló la llamada o el parseo, recurrir a la heurística
