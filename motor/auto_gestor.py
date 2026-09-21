@@ -84,6 +84,16 @@ def extraer_titulo_portada(ruta_doc):
         elif ruta.suffix.lower() in (".md", ".txt", ".html"):
             with open(ruta, "r", encoding="utf-8", errors="ignore") as f:
                 texto_inicio = f.read(2000)
+        elif ruta.suffix.lower() == ".tex":
+            with open(ruta, "r", encoding="utf-8", errors="ignore") as f:
+                raw_tex = f.read(3000)
+            titulos = re.findall(r'\\(?:title|section)\{([^}]+)\}', raw_tex)
+            if titulos:
+                return titulos[0].strip()
+            texto_inicio = re.sub(r'(?<!\\)%.*$', '', raw_tex, flags=re.MULTILINE)
+        elif ruta.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"):
+            nombre_limpio = re.sub(r'[-_.]+', ' ', ruta.stem).strip()
+            return f"Esquema Visual: {nombre_limpio}"
     except Exception:
         pass
 
@@ -162,6 +172,20 @@ def analizar_tematica_y_sugerir_carpeta(ruta_doc, materias_existentes=None):
             doc = docx.Document(str(ruta))
             parrafos = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
             texto_inicio = "\n".join(parrafos[:10])
+        elif ruta.suffix.lower() == ".tex":
+            with open(ruta, "r", encoding="utf-8", errors="ignore") as f:
+                raw_tex = f.read(3000)
+            titulos = re.findall(r'\\(?:title|section)\{([^}]+)\}', raw_tex)
+            if titulos:
+                texto_inicio = titulos[0].strip()
+            else:
+                texto_inicio = re.sub(r'(?<!\\)%.*$', '', raw_tex, flags=re.MULTILINE)
+        elif ruta.suffix.lower() in (".md", ".txt", ".html"):
+            with open(ruta, "r", encoding="utf-8", errors="ignore") as f:
+                texto_inicio = f.read(2000)
+        elif ruta.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"):
+            nombre_limpio = re.sub(r'[-_.]+', ' ', ruta.stem).strip()
+            texto_inicio = f"Recurso gráfico / Esquema visual: {nombre_limpio}"
     except Exception:
         pass
 
@@ -460,15 +484,15 @@ class AutoGestor:
             "memoria_sesion_y_conversacion.md", "prompt_activacion_bionic.md", "revision_general_y_estado_proyecto.md"
         }
 
+        EXTS_TEXTO = ("*.pdf", "*.docx", "*.html", "*.txt", "*.md", "*.tex")
+        EXTS_VISUAL = ("*.png", "*.jpg", "*.jpeg", "*.webp", "*.svg", "*.gif", "*.bmp")
+        EXTS_TOTAL = EXTS_TEXTO + EXTS_VISUAL
+
         # 4. Procesar cada carpeta
         for carp in carpetas_a_escanear:
-            docs = (
-                list(carp.rglob("*.pdf")) + 
-                list(carp.rglob("*.docx")) + 
-                list(carp.rglob("*.html")) + 
-                list(carp.rglob("*.txt")) +
-                list(carp.rglob("*.md"))
-            )
+            docs = []
+            for ext in EXTS_TOTAL:
+                docs.extend(carp.rglob(ext))
             # Descartar cualquier archivo que esté dentro de carpetas ocultas (.agents, .venv, etc.) o de sistema
             docs = [
                 f for f in docs 
@@ -509,9 +533,9 @@ class AutoGestor:
                 }
                 total_docs += len(docs)
 
-        # 5. Procesar ARCHIVOS SUELTOS (PDFs, DOCXs, HTMLs, TXTs o MDs sin carpeta)
+        # 5. Procesar ARCHIVOS SUELTOS (PDFs, DOCXs, TeX, MDs o Imágenes sin carpeta)
         rutas_sueltas = []
-        for ext in ("*.pdf", "*.docx", "*.html", "*.txt", "*.md"):
+        for ext in EXTS_TOTAL:
             if self.carpeta_evaluacion.exists():
                 rutas_sueltas.extend(self.carpeta_evaluacion.glob(ext))
             if carpeta_intereses.exists():
@@ -733,6 +757,8 @@ class AutoGestor:
                     p_did = info.get("perfil_didactico", {})
                     if p_did:
                         estado_aud = p_did.get('estado_clasificacion', 'CONFIRMADO')
+                        area_acad = p_did.get('area_academica', 'ACADEMICO_GENERAL')
+                        lineas.append(f"- **🏛️ Área Académica:** `{area_acad}`")
                         lineas.append(f"- **🎯 Perfil Didáctico:** `{p_did.get('perfil', 'GENERAL')}` [{estado_aud}]")
                         lineas.append(f"  * **Herramienta en Ejercicios:** {p_did.get('herramienta_ejercicios', 'Estándar')}")
                         lineas.append(f"  * **Regla Estricta:** {p_did.get('prohibicion_especifica', 'Ninguna')}")
@@ -760,11 +786,41 @@ class AutoGestor:
                         lineas.append(f"- **🎯 Perfil Didáctico:** `{p_did.get('perfil', 'GENERAL')}` [{estado_aud}]")
                         lineas.append(f"  * **Herramienta en Ejercicios:** {p_did.get('herramienta_ejercicios', 'Estándar')}")
                         lineas.append(f"  * **Regla Estricta:** {p_did.get('prohibicion_especifica', 'Ninguna')}")
-                        if p_did.get("auditoria_llm_pendiente"):
-                            lineas.append("  * ⏳ *(Bandera activa: Clasificación heurística provisional. Pendiente de refinamiento con LLM).*")
                     
                     lineas.append("")
                     contador_global += 1
+
+            # 3. Galería consolidada de Recursos Visuales y Esquemas Didácticos
+            todos_visuales = []
+            for cod, info in revision["materias"].items():
+                p_did_materia = info.get("perfil_didactico", {})
+                for doc_path_str in info.get("documentos", []):
+                    p_doc = Path(doc_path_str)
+                    if p_doc.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"):
+                        p_vis = p_did_materia if p_did_materia.get("es_recurso_visual") else auditar_perfil_documento(p_doc)
+                        try:
+                            rel_ruta = str(p_doc.relative_to(self.raiz))
+                        except Exception:
+                            rel_ruta = f"{p_doc.parent.name}/{p_doc.name}"
+                        todos_visuales.append({
+                            "nombre": p_doc.name,
+                            "ubicacion": rel_ruta,
+                            "materia": info.get("nombre", cod),
+                            "tipo": p_vis.get("tipo_recurso_visual", "ESQUEMA_O_DIAGRAMA_VISUAL"),
+                            "pauta": p_vis.get("estrategia_interpretacion_pedagogica", "DESCRIPCION_CONCEPTUAL"),
+                            "area": p_vis.get("area_academica", "CIENCIAS_EXACTAS_E_INGENIERIA"),
+                            "estado": p_vis.get("estado_clasificacion", "CONFIRMADO_JEV_VISION")
+                        })
+
+            if todos_visuales:
+                lineas.append("## 🖼️ RECURSOS VISUALES Y ESQUEMAS DIDÁCTICOS INDEXADOS:")
+                lineas.append("> Galería de diagramas, topologías y esquemas triangulados con el motor Jev para su interpretación directa en clase:")
+                for rv in todos_visuales:
+                    lineas.append(f"- 🎨 **`{rv['nombre']}`** *(Ubicación: `{rv['ubicacion']}` | Materia: {rv['materia']})*")
+                    lineas.append(f"  * **Tipo Visual:** `{rv['tipo']}` [{rv['estado']}]")
+                    lineas.append(f"  * **Pauta Pedagógica para el Tutor:** {rv['pauta']}")
+                    lineas.append(f"  * **Disciplina:** `{rv['area']}`")
+                lineas.append("")
 
             contenido = "\n".join(lineas)
 
