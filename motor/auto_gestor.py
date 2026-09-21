@@ -398,6 +398,11 @@ class AutoGestor:
         self.ruta_manifest = self.carpeta_storage / "manifest.json"
         self.ruta_catalogo_md = self.raiz / "TEMARIO_ACTIVO.md"
 
+    def evaluar_ambito_documento(self, ruta_doc):
+        """Evalúa si un documento es del ámbito académico o de interés personal."""
+        info = analizar_tematica_y_sugerir_carpeta(ruta_doc)
+        return info.get("ambito", "ACADEMICO"), info.get("tematica", ""), info.get("sugerencia_carpeta", "")
+
     def verificar_proyecto(self):
         """
         Descubre dinámicamente:
