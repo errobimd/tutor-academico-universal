@@ -34,6 +34,12 @@ storage_index/
 *.tmp
 *.log
 
+# Claves y Credenciales (PROHIBIDO EN GITHUB PÚBLICO)
+config_api.json
+.env
+*.key
+*.pem
+
 # Carpetas de Apuntes Personales (cada alumno pone los suyos)
 1 Evaluación/
 Apuntes/

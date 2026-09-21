@@ -120,7 +120,9 @@ def obtener_instantanea_archivos(raiz):
 def sincronizar_con_github(raiz):
     """
     Consulta silenciosamente el repositorio oficial en GitHub.
-    Si hay cambios nuevos (reglas KaTeX, mejoras de motor), los descarga con 'git pull'.
+    Si hay cambios nuevos (reglas KaTeX, mejoras de motor, Jev):
+    1. Los descarga con 'git pull'.
+    2. Auto-reinicia el centinela en segundo plano para aplicar los cambios en memoria.
     No bloquea si no hay conexión o si no es un repo git.
     """
     candidatos_git = [
@@ -132,12 +134,21 @@ def sincronizar_con_github(raiz):
         if (ruta_repo / ".git").exists():
             try:
                 res = subprocess.run(
-                    ["git", "-C", str(ruta_repo), "pull", "--quiet"],
+                    ["git", "-C", str(ruta_repo), "pull"],
                     capture_output=True,
                     text=True,
                     timeout=15
                 )
                 if res.returncode == 0:
+                    salida = (res.stdout or "").strip()
+                    # Si hubo cambios descargados reales (no estaba al día)
+                    if salida and "Already up to date" not in salida and "Already up-to-date" not in salida:
+                        ahora = datetime.now().strftime("%H:%M:%S")
+                        print(f"\n[!] [{ahora}] 🚀 ¡NUEVA ACTUALIZACIÓN DE SOFTWARE DESCARGADA DE GITHUB!")
+                        print(f"    └─ Detalle: {salida[:120]}")
+                        print("    🔄 Auto-reiniciando centinela en segundo plano para aplicar mejoras...")
+                        subprocess.Popen([sys.executable] + sys.argv, cwd=str(raiz))
+                        sys.exit(0)
                     return True
             except Exception:
                 pass

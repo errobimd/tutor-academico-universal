@@ -217,34 +217,141 @@ def clasificar_con_llm(texto_muestra, nombre_archivo=""):
     except Exception as e:
         global _LLM_ACTIVO_CIRCUITO
         _LLM_ACTIVO_CIRCUITO = False
-        print(f"    [!] LM Studio no disponible ({e}). Activando fallback heurístico seguro e inmediato.", flush=True)
-        pass
 
-    # Si falló la llamada o el parseo, recurrir a la heurística
-    return None
+# Importar conector resiliente de Jev
+try:
+    from conector_jev import ClienteJevResiliente
+except ImportError:
+    try:
+        from motor.conector_jev import ClienteJevResiliente
+    except ImportError:
+        ClienteJevResiliente = None
+
+_CLIENTE_JEV = None
+def obtener_cliente_jev():
+    global _CLIENTE_JEV
+    if _CLIENTE_JEV is None and ClienteJevResiliente is not None:
+        try:
+            _CLIENTE_JEV = ClienteJevResiliente()
+        except Exception:
+            _CLIENTE_JEV = False
+    return _CLIENTE_JEV if _CLIENTE_JEV is not False else None
+
+def clasificar_con_jev(texto_muestra, nombre_archivo=""):
+    """
+    Nivel 1: Consulta ultrarrápida al motor de Sistema 1 (Jev vía OpenRouter)
+    Devuelve tipos exactos en <500ms con registro en bitácora.
+    """
+    cliente = obtener_cliente_jev()
+    if not cliente:
+        return None
+
+    state = f"Nombre del archivo: {nombre_archivo}\nContenido de muestra:\n{texto_muestra[:1500]}"
+    questions = {
+        "materia": {
+            "type": "choice",
+            "instructions": "¿A qué asignatura o temática oficial de FP corresponde este contenido?",
+            "criteria": {
+                "REDA": "Redes de datos, numeración binaria, IP, direccionamiento o protocolos",
+                "LEMA": "Lenguajes de marcas, HTML5, CSS o XML",
+                "GEBD": "Bases de datos relacionales, SQL o diagramas ER",
+                "IMSO": "Implantación de sistemas operativos, arquitectura de computadores",
+                "DISI": "Digitalización aplicada, transformación digital",
+                "OBSIDIAN": "Notas de estudio en Markdown, Obsidian o registros de clase",
+                "INTERES_PERSONAL": "Temas no lectivos, aficiones, mascotas, cultivo, cocina"
+            }
+        },
+        "perfil": {
+            "type": "choice",
+            "instructions": "¿Cuál es la naturaleza didáctica del documento?",
+            "criteria": {
+                "CALCULO_NUMERICO": "Conversiones de base, operaciones con bits, subnetting o matemáticas",
+                "HIBRIDO_REDES": "Teoría de capas y topologías con cálculos de red",
+                "LOGICO_ESTRUCTURAL": "Estructuras de datos, código o diagramas relacionales",
+                "SOLO_CONCEPTUAL": "Contenido puramente teórico sin cálculos ni código",
+                "ACADEMICO_GENERAL": "Temario académico estándar"
+            }
+        },
+        "herramienta_ejercicios": {
+            "type": "choice",
+            "instructions": "¿Qué formato pedagógico debe usar el tutor al plantear ejercicios?",
+            "criteria": {
+                "TABLA_PONDERACION_Y_CAJETINES": "Tablas de ponderación de potencias o cajetines (prohibido Mermaid)",
+                "HIBRIDO_KATEX_Y_MERMAID_TOPOLOGIA": "Diagramas de topología de red o modelos de capas",
+                "CODIGO_Y_DIAGRAMAS_ER": "Bloques de código y diagramas entidad-relación",
+                "PREGUNTAS_REFLEXIVAS": "Preguntas abiertas y reflexivas"
+            }
+        }
+    }
+
+    try:
+        res = cliente.consultar_decision(state, questions)
+        if not res.get("exito"):
+            return None
+
+        answers = res.get("datos", {}).get("answers", {})
+        materia = answers.get("materia", {}).get("choice", "ACADEMICO_GENERAL")
+        perfil = answers.get("perfil", {}).get("choice", "ACADEMICO_GENERAL")
+        herramienta = answers.get("herramienta_ejercicios", {}).get("choice", "PREGUNTAS_REFLEXIVAS")
+
+        es_personal = (materia == "INTERES_PERSONAL")
+        admite_katex = (perfil in ("CALCULO_NUMERICO", "HIBRIDO_REDES")) and not es_personal
+        admite_mermaid_teoria = not es_personal
+        admite_mermaid_ejercicios = (perfil in ("HIBRIDO_REDES", "LOGICO_ESTRUCTURAL")) and not es_personal
+
+        prohibicion = "Evitar diagramas superfluos."
+        if perfil == "CALCULO_NUMERICO":
+            prohibicion = "PROHIBIDO Mermaid en ejercicios de conversión numérica (usar Tabla Posicional o Cajetines)."
+        elif perfil == "LOGICO_ESTRUCTURAL":
+            prohibicion = "KaTeX matemático innecesario; usar código formateado y diagramas relacionales."
+        elif es_personal:
+            prohibicion = "Documento de interés personal; prohibido evaluar como examen oficial."
+
+        return {
+            "perfil": perfil,
+            "ambito": "INTERES_PERSONAL" if es_personal else "ACADEMICO_OFICIAL",
+            "admite_katex": admite_katex,
+            "admite_mermaid_teoria": admite_mermaid_teoria,
+            "admite_mermaid_ejercicios": admite_mermaid_ejercicios,
+            "herramienta_ejercicios": herramienta,
+            "prohibicion_especifica": prohibicion,
+            "estado_clasificacion": "CONFIRMADO_JEV",
+            "auditoria_llm_pendiente": False,
+            "latencia_ms": res.get("latencia_ms", 0)
+        }
+    except Exception:
+        return None
 
 def auditar_perfil_documento(ruta_doc, forzar_reintento_llm=False):
     """
-    Función principal de auditoría:
-    1. Extrae muestra del documento.
-    2. Si LM Studio está disponible, clasifica con el LLM.
-    3. Si no, o si falla, clasifica por heurística con la bandera 'auditoria_llm_pendiente = True'.
+    Función principal de auditoría pedagógica en 3 niveles:
+    1. Nivel 1: Jev (System 1 - Inferencia ultrarrápida, tipada y con reintentos).
+    2. Nivel 2: LM Studio local (si está activo y disponible).
+    3. Nivel 3: Fallback Heurístico inmediato (0 ms, offline garantizado).
     """
     p = Path(ruta_doc)
     muestra = extraer_muestra_documento(p)
     
+    # 1. Nivel 1: Jev
+    res_jev = clasificar_con_jev(muestra, nombre_archivo=p.name)
+    if res_jev:
+        return res_jev
+        
+    # 2. Nivel 2: LM Studio local
     if comprobar_llm_disponible():
         res_llm = clasificar_con_llm(muestra, nombre_archivo=p.name)
         if res_llm:
             return res_llm
             
-    # Fallback seguro
+    # 3. Nivel 3: Fallback seguro heurístico
     return clasificar_por_heuristica(muestra, nombre_archivo=p.name)
 
 if __name__ == "__main__":
-    print("[*] Comprobando disponibilidad de LM Studio...")
-    online = comprobar_llm_disponible()
-    print(f"    └─ LM Studio Online: {online}")
+    print("[*] Comprobando disponibilidad de motores pedagógicos...")
+    cliente_j = obtener_cliente_jev()
+    print(f"    ├─ Jev Resiliente: {'ONLINE' if cliente_j else 'NO CONFIGURADO'}")
+    online_lm = comprobar_llm_disponible()
+    print(f"    └─ LM Studio Local: {'ONLINE' if online_lm else 'OFFLINE'}")
     
     if len(sys.argv) > 1:
         doc_test = sys.argv[1]
