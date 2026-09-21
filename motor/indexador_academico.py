@@ -38,6 +38,8 @@ def limpiar_texto(texto):
 
 def clasificar_tipo_documento(nombre_archivo):
     nombre = nombre_archivo.lower()
+    if any(nombre.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"]):
+        return "recurso_visual"
     if any(k in nombre for k in ["ejercicio", "actividad", "taller", "tarea", "problema"]):
         return "ejercicios"
     if any(k in nombre for k in ["practica", "práctica", "laboratorio", "caso"]):
@@ -193,6 +195,38 @@ class IndexadorAcademico:
             print(f"⚠️ Error al leer HTML {ruta_html.name}: {e}", file=sys.stderr)
         return fragmentos
 
+    def extraer_tex(self, ruta_tex):
+        fragmentos = []
+        try:
+            with open(ruta_tex, "r", encoding="utf-8", errors="ignore") as f:
+                raw_tex = f.read()
+            sin_comentarios = re.sub(r'(?<!\\)%.*$', '', raw_tex, flags=re.MULTILINE)
+            texto_final = limpiar_texto(sin_comentarios)
+            if texto_final and len(texto_final) > 20:
+                fragmentos.append({
+                    "pagina": 1,
+                    "total_paginas": 1,
+                    "texto": texto_final
+                })
+        except Exception as e:
+            print(f"⚠️ Error al leer TeX {ruta_tex.name}: {e}", file=sys.stderr)
+        return fragmentos
+
+    def extraer_imagen(self, ruta_img):
+        fragmentos = []
+        try:
+            from clasificador_pedagogico import extraer_contexto_entorno_imagen
+            ctx = extraer_contexto_entorno_imagen(ruta_img)
+            if ctx and len(ctx) > 20:
+                fragmentos.append({
+                    "pagina": 1,
+                    "total_paginas": 1,
+                    "texto": ctx
+                })
+        except Exception as e:
+            print(f"⚠️ Error al extraer contexto de imagen {ruta_img.name}: {e}", file=sys.stderr)
+        return fragmentos
+
     def fragmentar_texto(self, texto, max_chars=800):
         oraciones = re.split(r'(?<=[.?!])\s+', texto)
         chunks = []
@@ -232,6 +266,11 @@ class IndexadorAcademico:
 
         self.carpeta_storage.mkdir(parents=True, exist_ok=True)
 
+        EXTS_INDEXABLES = (
+            "*.pdf", "*.docx", "*.html", "*.txt", "*.md", "*.tex",
+            "*.png", "*.jpg", "*.jpeg", "*.webp", "*.svg", "*.gif", "*.bmp"
+        )
+
         for codigo, info in materias.items():
             print(f"📚 Indexando Materia: {codigo} - {info['nombre']}...")
             ruta_materia = Path(info["ruta"])
@@ -241,12 +280,9 @@ class IndexadorAcademico:
             if ruta_materia.is_file():
                 documentos = [ruta_materia]
             else:
-                documentos = (
-                    list(ruta_materia.rglob("*.pdf")) + 
-                    list(ruta_materia.rglob("*.docx")) + 
-                    list(ruta_materia.rglob("*.html")) + 
-                    list(ruta_materia.rglob("*.txt"))
-                )
+                documentos = []
+                for ext in EXTS_INDEXABLES:
+                    documentos.extend(ruta_materia.rglob(ext))
                 documentos = [
                     d for d in documentos 
                     if not any(part.startswith('.') for part in d.parts)
@@ -265,12 +301,17 @@ class IndexadorAcademico:
                     tema_nombre = "General"
                 temas_detectados.add(tema_nombre)
 
-                if doc.suffix.lower() == ".pdf":
+                suf = doc.suffix.lower()
+                if suf == ".pdf":
                     paginas = self.extraer_pdf(doc)
-                elif doc.suffix.lower() == ".docx":
+                elif suf == ".docx":
                     paginas = self.extraer_docx(doc)
-                elif doc.suffix.lower() == ".html":
+                elif suf in (".html", ".htm"):
                     paginas = self.extraer_html(doc)
+                elif suf == ".tex":
+                    paginas = self.extraer_tex(doc)
+                elif suf in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"):
+                    paginas = self.extraer_imagen(doc)
                 else:
                     try:
                         with open(doc, "r", encoding="utf-8", errors="ignore") as f:

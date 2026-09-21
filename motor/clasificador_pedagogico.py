@@ -45,6 +45,108 @@ def comprobar_llm_disponible(timeout_seg=0.8):
         _LLM_ACTIVO_CIRCUITO = False
         return False
 
+def extraer_contexto_entorno_imagen(ruta_img, max_caracteres=2500):
+    """
+    Canal de Pre-Procesamiento y Contextualización Visual:
+    Examina la ubicación de la imagen, la jerarquía de carpetas y los documentos hermanos
+    (código HTML, CSS, enunciados PDF, TXT, MD, scripts) para reconstruir el significado pedagógico
+    y técnico real de la imagen ANTES de que actúe Jev y LlamaIndex.
+    """
+    ruta = Path(ruta_img)
+    if not ruta.exists():
+        return f"[RECURSO_VISUAL] Archivo: {ruta.name}"
+
+    partes_ficha = [
+        "--- FICHA DE CONTEXTO VISUAL DEL PROYECTO ---",
+        f"Archivo de Imagen: {ruta.name} (Formato: {ruta.suffix.upper()})"
+    ]
+
+    # 1. Metadatos físicos de imagen
+    try:
+        from PIL import Image
+        with Image.open(ruta) as im:
+            partes_ficha.append(f"Dimensiones de imagen: {im.width}x{im.height}px | Modo color: {im.mode}")
+    except Exception:
+        try:
+            tam = ruta.stat().st_size
+            partes_ficha.append(f"Tamaño archivo: {tam} bytes")
+        except Exception:
+            pass
+
+    # 2. Contexto curricular por jerarquía de directorios
+    padres = [p.name for p in ruta.parents if p.name and not p.name.startswith('.') and p.name not in ("Biblioteca_Temas", "1 Evaluación")]
+    if padres:
+        jerarquia = " / ".join(reversed(padres[:4]))
+        partes_ficha.append(f"Ubicación / Jerarquía curricular: {jerarquia}")
+
+    # 3. Inspección de documentos hermanos en el mismo directorio
+    directorio = ruta.parent
+    hermanos = [f for f in directorio.iterdir() if f.is_file() and f != ruta and not f.name.startswith('.')]
+    
+    detalles_hermanos = []
+    enunciado_referencia = None
+    es_render_web = False
+    es_red = False
+
+    for h in hermanos:
+        h_suf = h.suffix.lower()
+        if h_suf in (".html", ".htm"):
+            es_render_web = True
+            try:
+                with open(h, "r", encoding="utf-8", errors="ignore") as f_h:
+                    html_raw = f_h.read(2500)
+                m_title = re.search(r'<title>(.*?)</title>', html_raw, re.I | re.DOTALL)
+                m_h1 = re.search(r'<h1>(.*?)</h1>', html_raw, re.I | re.DOTALL)
+                tit_html = m_title.group(1).strip() if m_title else (m_h1.group(1).strip() if m_h1 else "")
+                tit_html_limpio = re.sub(r'<[^>]+>', '', tit_html).strip()
+                detalles_hermanos.append(f"Código HTML hermano '{h.name}' (Título página: '{tit_html_limpio}')")
+            except Exception:
+                detalles_hermanos.append(f"Código HTML hermano '{h.name}'")
+        elif h_suf == ".css":
+            detalles_hermanos.append(f"Hoja de estilos CSS hermana '{h.name}'")
+        elif h_suf in (".pkt", ".pka"):
+            es_red = True
+            detalles_hermanos.append(f"Archivo de Packet Tracer hermano '{h.name}'")
+        elif h_suf in (".txt", ".md"):
+            try:
+                with open(h, "r", encoding="utf-8", errors="ignore") as f_t:
+                    txt_m = f_t.read(300).strip()
+                detalles_hermanos.append(f"Texto adyacente ('{h.name}'): {txt_m[:150]}")
+            except Exception:
+                detalles_hermanos.append(f"Texto adyacente '{h.name}'")
+
+    # 4. Inspección de enunciados o guías en el directorio padre o abuelo
+    for nivel_dir in (directorio, directorio.parent):
+        for f_doc in nivel_dir.glob("*.pdf"):
+            if any(k in f_doc.name.lower() for k in ["ejer", "pract", "guia", "instruc", "red", "html"]):
+                enunciado_referencia = f_doc.name
+                break
+        if enunciado_referencia:
+            break
+
+    if detalles_hermanos:
+        partes_ficha.append("Documentos adyacentes en la misma carpeta:")
+        for dh in detalles_hermanos:
+            partes_ficha.append(f"  * {dh}")
+
+    if enunciado_referencia:
+        partes_ficha.append(f"Enunciado / Práctica oficial asociada: '{enunciado_referencia}'")
+
+    # 5. Deducción semántica del propósito de la imagen
+    nombre_limpio = re.sub(r'[-_.]+', ' ', ruta.stem).strip()
+    if es_render_web or any(k in str(ruta).lower() for k in ["html", "css", "web"]):
+        proposito = f"Captura de pantalla de renderizado en navegador web (resultado visual del código HTML/CSS de '{directorio.name}')."
+    elif es_red or any(k in str(ruta).lower() for k in ["red", "packet tracer", "topolog", "switch", "router"]):
+        proposito = f"Diagrama o captura de topología de red / infraestructura de comunicaciones ({nombre_limpio})."
+    elif any(k in str(ruta).lower() for k in ["krebs", "anatom", "celul", "bio", "medic"]):
+        proposito = f"Esquema biológico o médico ({nombre_limpio})."
+    else:
+        proposito = f"Recurso gráfico / visual de estudio titulado '{nombre_limpio}'."
+
+    partes_ficha.append(f"Propósito didáctico deducido: {proposito}")
+
+    return "\n".join(partes_ficha)[:max_caracteres]
+
 def extraer_muestra_documento(ruta_doc, max_caracteres=2500):
     """Extrae una muestra significativa del documento para su auditoría pedagógica."""
     ruta = Path(ruta_doc)
@@ -55,12 +157,10 @@ def extraer_muestra_documento(ruta_doc, max_caracteres=2500):
             import pypdf
             reader = pypdf.PdfReader(str(ruta))
             paginas = len(reader.pages)
-            # Portada e índice
             if paginas > 0:
                 texto += (reader.pages[0].extract_text() or "") + "\n"
             if paginas > 1:
                 texto += (reader.pages[1].extract_text() or "") + "\n"
-            # Muestra central (posibles ejercicios o desarrollo)
             if paginas > 3:
                 texto += (reader.pages[paginas // 2].extract_text() or "") + "\n"
         elif sufijo == ".docx":
@@ -79,31 +179,15 @@ def extraer_muestra_documento(ruta_doc, max_caracteres=2500):
         elif sufijo == ".tex":
             with open(ruta, "r", encoding="utf-8", errors="replace") as f:
                 raw_tex = f.read()
-            # Eliminar comentarios LaTeX (% hasta fin de línea)
             sin_comentarios = re.sub(r'(?<!\\)%.*$', '', raw_tex, flags=re.MULTILINE)
-            # Extraer títulos y secciones clave
             titulos = re.findall(r'\\(?:title|section|chapter|subsection)\{([^}]+)\}', sin_comentarios)
             texto = ("Títulos TeX: " + " | ".join(titulos) + "\n" if titulos else "") + sin_comentarios[:max_caracteres]
         elif sufijo in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"):
-            # Metadatos del recurso visual y deducción semántica por nombre y cabecera
-            partes_info = [f"[RECURSO_VISUAL] Formato: {sufijo.upper()} | Archivo: {ruta.name}"]
-            try:
-                from PIL import Image
-                with Image.open(ruta) as im:
-                    partes_info.append(f"Dimensiones: {im.width}x{im.height}px | Modo: {im.mode}")
-            except Exception:
-                try:
-                    stat = ruta.stat()
-                    partes_info.append(f"Tamaño: {stat.st_size} bytes")
-                except Exception:
-                    pass
-            nombre_limpio = re.sub(r'[-_.]+', ' ', ruta.stem).strip()
-            partes_info.append(f"Descripción/Nombre del recurso gráfico: {nombre_limpio}")
-            texto = " | ".join(partes_info)
+            texto = extraer_contexto_entorno_imagen(ruta, max_caracteres=max_caracteres)
     except Exception:
         pass
 
-    texto_limpio = re.sub(r'\s+', ' ', texto).strip()
+    texto_limpio = re.sub(r'[ \t]+', ' ', texto).strip()
     return texto_limpio[:max_caracteres]
 
 def clasificar_por_heuristica(texto_muestra, nombre_archivo=""):
@@ -328,20 +412,22 @@ def clasificar_recurso_visual_con_jev(texto_muestra, nombre_archivo=""):
             "type": "choice",
             "instructions": "¿Qué tipo de gráfica, esquema o recurso visual representa este archivo?",
             "criteria": {
-                "GRAFICA_ANALITICA_O_DATOS": "Gráfica cartesiana X/Y, funciones matemáticas, curvas de datos, histogramas o barras",
+                "CAPTURA_INTERFAZ_O_PAGINA_WEB": "Captura de pantalla de navegador web, interfaz de usuario o renderizado de código HTML/CSS",
                 "DIAGRAMA_ARQUITECTURA_O_RED": "Topología de red, mapa de sistemas, diagrama de bloques, modelo OSI/TCP o infraestructura",
+                "GRAFICA_ANALITICA_O_DATOS": "Gráfica cartesiana X/Y, funciones matemáticas, curvas de datos, histogramas o barras",
                 "ESQUEMA_BIOMEDICO_O_ANATOMICO": "Esquema anatómico, ciclo celular, vía bioquímica o diagrama de proceso clínico",
                 "FLUJOGRAMA_Y_PROCESOS": "Flujograma de decisiones, algoritmo, mapa conceptual o árbol de derivación",
                 "FORMULA_O_TABLA_GRAFICA": "Fórmula matemática compleja manuscrita/escaneada o tabla gráfica posicional",
-                "ILUSTRACION_O_FOTOGRAFIA": "Fotografía real, captura de pantalla de software o ilustración conceptual"
+                "ILUSTRACION_O_FOTOGRAFIA": "Fotografía real o ilustración conceptual general"
             }
         },
         "estrategia_interpretacion_pedagogica": {
             "type": "choice",
             "instructions": "¿Qué pauta didáctica debe seguir el tutor para interpretar y explicar este gráfico al estudiante?",
             "criteria": {
-                "LECTURA_CUANTITATIVA_EJES_Y_TENDENCIAS": "Analizar variables en ejes X/Y, unidades, máximos/mínimos y conclusiones de tendencia",
+                "EVALUACION_MAQUETACION_Y_ESTILOS": "Comparar el renderizado visual con la estructura de etiquetas HTML y estilos CSS aplicados",
                 "ANALISIS_ESTRUCTURAL_Y_RUTAS": "Explicar nodos, interfaces, capas, protocolos y enlaces de transmisión",
+                "LECTURA_CUANTITATIVA_EJES_Y_TENDENCIAS": "Analizar variables en ejes X/Y, unidades, máximos/mínimos y conclusiones de tendencia",
                 "PASO_A_PASO_DEL_PROCESO": "Guiar secuencialmente a través de las bifurcaciones y decisiones del diagrama de flujo",
                 "TRANSCRIPCION_FORMAL": "Transcribir la fórmula o cálculo gráfico a sintaxis KaTeX rigurosa",
                 "DESCRIPCION_CONCEPTUAL": "Explicar el concepto ilustrado de forma intuitiva vinculándolo a la teoría"
@@ -351,7 +437,7 @@ def clasificar_recurso_visual_con_jev(texto_muestra, nombre_archivo=""):
             "type": "choice",
             "instructions": "¿A qué gran disciplina o área del conocimiento se adscribe este recurso visual?",
             "criteria": {
-                "CIENCIAS_EXACTAS_E_INGENIERIA": "Matemáticas, física, computación, redes de datos, telecomunicaciones o electrónica",
+                "CIENCIAS_EXACTAS_E_INGENIERIA": "Matemáticas, física, computación, redes de datos, telecomunicaciones o lenguajes web",
                 "CIENCIAS_SALUD_Y_BIOMEDICAS": "Medicina, enfermería, biología, anatomía, fisiología o farmacia",
                 "CIENCIAS_SOCIALES_Y_JURIDICAS": "Derecho, legislación, economía, psicología, administración",
                 "ARTE_Y_HUMANIDADES": "Filosofía, historia, literatura, arte o lingüística",
@@ -372,17 +458,21 @@ def clasificar_recurso_visual_con_jev(texto_muestra, nombre_archivo=""):
         area = answers.get("area_academica", {}).get("choice", "CIENCIAS_EXACTAS_E_INGENIERIA")
 
         es_personal = (area == "INTERES_PERSONAL_Y_AFICIONES")
+        perfil_res = "LOGICO_DESARROLLO" if tipo_vis == "CAPTURA_INTERFAZ_O_PAGINA_WEB" else ("ESTRUCTURAL_SISTEMICO" if tipo_vis in ("DIAGRAMA_ARQUITECTURA_O_RED", "FLUJOGRAMA_Y_PROCESOS") else "SOLO_CONCEPTUAL")
+        herramienta_res = "CODIGO_Y_DIAGRAMAS_ER" if tipo_vis == "CAPTURA_INTERFAZ_O_PAGINA_WEB" else "PREGUNTAS_REFLEXIVAS"
+
         return {
             "es_recurso_visual": True,
             "tipo_recurso_visual": tipo_vis,
             "estrategia_interpretacion_pedagogica": estrategia,
             "area_academica": area,
-            "perfil": "ESTRUCTURAL_SISTEMICO" if tipo_vis in ("DIAGRAMA_ARQUITECTURA_O_RED", "FLUJOGRAMA_Y_PROCESOS") else "SOLO_CONCEPTUAL",
+            "descripcion_contextual": texto_muestra[:1000],
+            "perfil": perfil_res,
             "ambito": "INTERES_PERSONAL" if es_personal else "ACADEMICO_OFICIAL",
             "admite_katex": (tipo_vis == "FORMULA_O_TABLA_GRAFICA"),
             "admite_mermaid_teoria": True,
             "admite_mermaid_ejercicios": False,
-            "herramienta_ejercicios": "PREGUNTAS_REFLEXIVAS",
+            "herramienta_ejercicios": herramienta_res,
             "prohibicion_especifica": "Recurso gráfico indexado; usar la pauta de interpretación para guiar al alumno visualmente.",
             "estado_clasificacion": "CONFIRMADO_JEV_VISION",
             "auditoria_llm_pendiente": False,

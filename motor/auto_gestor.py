@@ -797,11 +797,14 @@ class AutoGestor:
                 for doc_path_str in info.get("documentos", []):
                     p_doc = Path(doc_path_str)
                     if p_doc.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"):
-                        p_vis = p_did_materia if p_did_materia.get("es_recurso_visual") else auditar_perfil_documento(p_doc)
+                        p_vis = auditar_perfil_documento(p_doc)
                         try:
                             rel_ruta = str(p_doc.relative_to(self.raiz))
                         except Exception:
                             rel_ruta = f"{p_doc.parent.name}/{p_doc.name}"
+                        desc_ctx = p_vis.get("descripcion_contextual", "")
+                        m_prop = re.search(r'Propósito didáctico deducido:\s*(.*?)$', desc_ctx, re.MULTILINE)
+                        resumen_proposito = m_prop.group(1).strip() if m_prop else f"Recurso gráfico en {p_doc.parent.name}"
                         todos_visuales.append({
                             "nombre": p_doc.name,
                             "ubicacion": rel_ruta,
@@ -809,15 +812,17 @@ class AutoGestor:
                             "tipo": p_vis.get("tipo_recurso_visual", "ESQUEMA_O_DIAGRAMA_VISUAL"),
                             "pauta": p_vis.get("estrategia_interpretacion_pedagogica", "DESCRIPCION_CONCEPTUAL"),
                             "area": p_vis.get("area_academica", "CIENCIAS_EXACTAS_E_INGENIERIA"),
+                            "proposito": resumen_proposito,
                             "estado": p_vis.get("estado_clasificacion", "CONFIRMADO_JEV_VISION")
                         })
 
             if todos_visuales:
                 lineas.append("## 🖼️ RECURSOS VISUALES Y ESQUEMAS DIDÁCTICOS INDEXADOS:")
-                lineas.append("> Galería de diagramas, topologías y esquemas triangulados con el motor Jev para su interpretación directa en clase:")
+                lineas.append("> Galería de diagramas, topologías y esquemas con contexto previo triangulados con Jev:")
                 for rv in todos_visuales:
                     lineas.append(f"- 🎨 **`{rv['nombre']}`** *(Ubicación: `{rv['ubicacion']}` | Materia: {rv['materia']})*")
                     lineas.append(f"  * **Tipo Visual:** `{rv['tipo']}` [{rv['estado']}]")
+                    lineas.append(f"  * **Contexto Real:** {rv['proposito']}")
                     lineas.append(f"  * **Pauta Pedagógica para el Tutor:** {rv['pauta']}")
                     lineas.append(f"  * **Disciplina:** `{rv['area']}`")
                 lineas.append("")
